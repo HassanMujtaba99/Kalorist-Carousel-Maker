@@ -33,10 +33,15 @@
   --ring: #7c5cfc;
 }
 
-/* --neon-radius is a hardcoded literal in @neondatabase/auth-ui's
-   stylesheet (not `var(--radius, ...)`), so it must be forced with
-   !important to win regardless of CSS import order. */
+/* @neondatabase/auth-ui/css is a second, independently-compiled Tailwind
+   build. It defines its own literal `--font-sans` (Tailwind's stock
+   ui-sans-serif/system-ui default) and `--neon-radius` at :root, at the
+   same specificity as our own tokens below — so whichever stylesheet
+   happens to load last wins the cascade for the whole page, not just the
+   auth widget. Force ours with !important so the site's font/radius can't
+   silently flip depending on import order. */
 :root {
+  --font-sans: var(--font-jakarta) !important;
   --neon-radius: 1rem !important;
 }
 
