@@ -9,8 +9,15 @@ const DEFAULT_SETTINGS: AppSettings = {
   geminiApiKey: "",
   geminiModel: "gemini-2.5-flash-image",
   usdaApiKey: "",
+  copyProvider: "anthropic",
   anthropicApiKey: "",
   anthropicModel: "claude-sonnet-5",
+  geminiCopyModel: "gemini-2.5-flash",
+  openaiApiKey: "",
+  openaiModel: "gpt-4o-mini",
+  customApiKey: "",
+  customModel: "",
+  customBaseUrl: "",
 };
 
 type SyncStatus = "idle" | "syncing" | "synced" | "error";

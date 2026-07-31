@@ -1,34 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import type { CtaSlideData } from "@/lib/types";
-import { draftCopy } from "@/lib/claudeClient";
+import type { AppSettings, CtaSlideData } from "@/lib/types";
+import { draftCopy, activeCopyApiKey, copyProviderLabel } from "@/lib/copyProvider";
 import { buildCtaPrompt } from "@/lib/copyAssist";
 
 interface Props {
   data: CtaSlideData;
-  anthropicApiKey: string;
-  anthropicModel: string;
+  settings: AppSettings;
   onChange: (data: CtaSlideData) => void;
 }
 
-export function CtaSlideEditor({ data, anthropicApiKey, anthropicModel, onChange }: Props) {
+export function CtaSlideEditor({ data, settings, onChange }: Props) {
   const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const providerLabel = copyProviderLabel(settings.copyProvider);
 
   const draftMessage = async () => {
-    if (!anthropicApiKey.trim()) {
-      setError("Add your Anthropic API key in Settings first.");
+    if (!activeCopyApiKey(settings).trim()) {
+      setError(`Add your ${providerLabel} API key in Settings first.`);
       return;
     }
     setDrafting(true);
     setError(null);
     try {
-      const message = await draftCopy(
-        buildCtaPrompt(data.message),
-        anthropicApiKey,
-        anthropicModel
-      );
+      const message = await draftCopy(buildCtaPrompt(data.message), settings);
       onChange({ ...data, message });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Draft failed");
@@ -48,7 +44,7 @@ export function CtaSlideEditor({ data, anthropicApiKey, anthropicModel, onChange
             disabled={drafting}
             className="text-xs font-bold text-purple hover:underline disabled:opacity-50"
           >
-            {drafting ? "Drafting…" : "Draft with Claude"}
+            {drafting ? "Drafting…" : `Draft with ${providerLabel}`}
           </button>
         </div>
         <input

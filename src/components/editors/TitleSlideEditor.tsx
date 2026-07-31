@@ -1,34 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import type { TitleSlideData } from "@/lib/types";
-import { draftCopy } from "@/lib/claudeClient";
+import type { AppSettings, TitleSlideData } from "@/lib/types";
+import { draftCopy, activeCopyApiKey, copyProviderLabel } from "@/lib/copyProvider";
 import { buildHeadlinePrompt } from "@/lib/copyAssist";
 
 interface Props {
   data: TitleSlideData;
-  anthropicApiKey: string;
-  anthropicModel: string;
+  settings: AppSettings;
   onChange: (data: TitleSlideData) => void;
 }
 
-export function TitleSlideEditor({ data, anthropicApiKey, anthropicModel, onChange }: Props) {
+export function TitleSlideEditor({ data, settings, onChange }: Props) {
   const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const providerLabel = copyProviderLabel(settings.copyProvider);
 
   const draftHeadline = async () => {
-    if (!anthropicApiKey.trim()) {
-      setError("Add your Anthropic API key in Settings first.");
+    if (!activeCopyApiKey(settings).trim()) {
+      setError(`Add your ${providerLabel} API key in Settings first.`);
       return;
     }
     setDrafting(true);
     setError(null);
     try {
-      const headline = await draftCopy(
-        buildHeadlinePrompt(data.headline),
-        anthropicApiKey,
-        anthropicModel
-      );
+      const headline = await draftCopy(buildHeadlinePrompt(data.headline), settings);
       onChange({ ...data, headline });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Draft failed");
@@ -48,7 +44,7 @@ export function TitleSlideEditor({ data, anthropicApiKey, anthropicModel, onChan
             disabled={drafting}
             className="text-xs font-bold text-purple hover:underline disabled:opacity-50"
           >
-            {drafting ? "Drafting…" : "Draft with Claude"}
+            {drafting ? "Drafting…" : `Draft with ${providerLabel}`}
           </button>
         </div>
         <textarea

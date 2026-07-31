@@ -9,7 +9,9 @@ invent nutrition numbers.
 
 Slides are fully AI-generated (background, layout, and text) using Google's
 Gemini image generation model (`gemini-2.5-flash-image`, aka "Nano Banana").
-Claude (via a real Anthropic API key) can optionally draft the on-slide copy.
+On-slide copy (headlines, labels, CTAs) can optionally be drafted by an AI
+model of your choice — Claude, Gemini, OpenAI, or any other OpenAI-compatible
+API (Groq, Mistral, a local Ollama server, etc) — picked in Settings.
 
 ## How it works
 
@@ -29,8 +31,11 @@ Claude (via a real Anthropic API key) can optionally draft the on-slide copy.
    the app computes calorie/protein totals from your picks and composes a
    detailed prompt (see `src/lib/promptBuilder.ts`) that tells Gemini exactly
    what numbers and text to render.
-3. Optionally click "Draft with Claude" on a headline, CTA, or label field to
-   have Claude write punchy copy from a rough idea.
+3. Optionally click "Draft with…" on a headline, CTA, or label field to have
+   your chosen copywriting model write punchy copy from a rough idea. Pick
+   the provider (Claude / Gemini / OpenAI / Other) under **Settings →
+   Copywriting / brainstorming model** — this is independent of image
+   generation, which always uses Gemini.
 4. Clicking "Generate slide" calls Gemini's image generation API and shows
    the finished slide, ready to download as PNG (or all slides as a ZIP).
 
@@ -42,11 +47,19 @@ Claude (via a real Anthropic API key) can optionally draft the on-slide copy.
   one, searches fall back to USDA's shared `DEMO_KEY`, which works but is
   rate-limited. Get a free key at
   [api.data.gov/signup](https://api.data.gov/signup/).
-- **Anthropic API key** (optional) — powers the "Draft with Claude" copy
-  assist. Get one at
-  [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys).
-  This is standard pay-per-token API access — a Claude.ai or Claude Code
-  *subscription* is a separate product and can't be used as an API key here.
+- **A copywriting model** (optional) — powers the "Draft with…" copy assist.
+  Pick one provider in Settings:
+  - **Claude** — get a key at
+    [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys).
+    Standard pay-per-token API access — a Claude.ai or Claude Code
+    *subscription* is a separate product and can't be used as an API key here.
+  - **Gemini** — reuses the Gemini API key above, just pick a text model
+    (e.g. `gemini-2.5-flash`) instead of the image one.
+  - **OpenAI** — get a key at
+    [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
+  - **Other** — any OpenAI-compatible chat completions API: Groq, Mistral,
+    Together, a local Ollama server, etc. Enter its base URL, key, and model
+    name directly.
 
 Every key is entered in the in-app Settings panel and sent directly to this
 app's own API routes on each request — the routes are stateless proxies and
@@ -136,10 +149,15 @@ Neon Auth is wired in — see the build-time warning above.
 ## Project structure
 
 - `src/app/api/usda/search` — proxies USDA FoodData Central food search.
-- `src/app/api/gemini/{generate,models}` — proxies Gemini image generation
-  and model listing.
-- `src/app/api/claude/{generate-copy,models}` — proxies Claude copy
-  generation and model listing.
+- `src/app/api/gemini/{generate,generate-copy,models}` — proxies Gemini image
+  generation, Gemini text (copy) generation, and model listing for both.
+- `src/app/api/claude/{generate-copy,models}`,
+  `src/app/api/openai/{generate-copy,models}`,
+  `src/app/api/custom/generate-copy` — proxy copy generation (and model
+  listing, where the provider supports discovery) for Claude, OpenAI, and any
+  other OpenAI-compatible provider respectively.
+- `src/lib/copyProvider.ts` — dispatches copy-drafting to whichever provider
+  is selected in Settings.
 - `src/app/api/settings`, `src/app/api/carousels/*` — encrypted settings and
   saved carousels, gated on the signed-in Neon Auth user.
 - `src/app/api/auth/[...path]` — proxies auth requests to Neon's Managed
@@ -153,7 +171,7 @@ Neon Auth is wired in — see the build-time warning above.
 - `src/lib/nutrition.ts` — normalizes raw USDA results into calories/protein.
 - `src/lib/promptBuilder.ts` — turns slide data + USDA figures into an image
   generation prompt per slide template.
-- `src/lib/copyAssist.ts` — builds the Claude copywriting prompts.
+- `src/lib/copyAssist.ts` — builds the copywriting prompts (provider-agnostic).
 - `src/lib/server/` — Postgres access (`db.ts`) and AES-256-GCM encryption
   helpers (server-only).
 - `src/components/` — carousel builder UI, slide editors, USDA food picker,

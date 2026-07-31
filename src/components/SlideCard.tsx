@@ -1,6 +1,6 @@
 "use client";
 
-import type { Slide, SlideData } from "@/lib/types";
+import type { AppSettings, Slide, SlideData } from "@/lib/types";
 import { slideKindLabel } from "@/lib/carousel";
 import { SlideEditor } from "./SlideEditor";
 
@@ -8,8 +8,7 @@ interface Props {
   slide: Slide;
   displayNumber: number;
   usdaApiKey: string;
-  anthropicApiKey: string;
-  anthropicModel: string;
+  settings: AppSettings;
   onChangeData: (data: SlideData) => void;
   onGenerate: () => void;
   /** Cover and CTA slides are fixed in place and cannot be removed or reordered. */
@@ -25,8 +24,7 @@ export function SlideCard({
   slide,
   displayNumber,
   usdaApiKey,
-  anthropicApiKey,
-  anthropicModel,
+  settings,
   onChangeData,
   onGenerate,
   locked = false,
@@ -84,8 +82,7 @@ export function SlideCard({
         <SlideEditor
           slide={slide}
           usdaApiKey={usdaApiKey}
-          anthropicApiKey={anthropicApiKey}
-          anthropicModel={anthropicModel}
+          settings={settings}
           onChange={onChangeData}
         />
 

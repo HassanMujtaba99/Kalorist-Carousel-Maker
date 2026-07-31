@@ -1,6 +1,6 @@
 "use client";
 
-import type { Slide, SlideData } from "@/lib/types";
+import type { AppSettings, Slide, SlideData } from "@/lib/types";
 import { TitleSlideEditor } from "./editors/TitleSlideEditor";
 import { ThisOrThatSlideEditor } from "./editors/ThisOrThatSlideEditor";
 import { DayOnAPlateSlideEditor } from "./editors/DayOnAPlateSlideEditor";
@@ -9,35 +9,20 @@ import { CtaSlideEditor } from "./editors/CtaSlideEditor";
 interface Props {
   slide: Slide;
   usdaApiKey: string;
-  anthropicApiKey: string;
-  anthropicModel: string;
+  settings: AppSettings;
   onChange: (data: SlideData) => void;
 }
 
-export function SlideEditor({
-  slide,
-  usdaApiKey,
-  anthropicApiKey,
-  anthropicModel,
-  onChange,
-}: Props) {
+export function SlideEditor({ slide, usdaApiKey, settings, onChange }: Props) {
   switch (slide.data.kind) {
     case "title":
-      return (
-        <TitleSlideEditor
-          data={slide.data}
-          anthropicApiKey={anthropicApiKey}
-          anthropicModel={anthropicModel}
-          onChange={onChange}
-        />
-      );
+      return <TitleSlideEditor data={slide.data} settings={settings} onChange={onChange} />;
     case "this-or-that":
       return (
         <ThisOrThatSlideEditor
           data={slide.data}
           usdaApiKey={usdaApiKey}
-          anthropicApiKey={anthropicApiKey}
-          anthropicModel={anthropicModel}
+          settings={settings}
           onChange={onChange}
         />
       );
@@ -50,13 +35,6 @@ export function SlideEditor({
         />
       );
     case "cta":
-      return (
-        <CtaSlideEditor
-          data={slide.data}
-          anthropicApiKey={anthropicApiKey}
-          anthropicModel={anthropicModel}
-          onChange={onChange}
-        />
-      );
+      return <CtaSlideEditor data={slide.data} settings={settings} onChange={onChange} />;
   }
 }

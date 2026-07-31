@@ -41,6 +41,17 @@ async function createSchema(): Promise<void> {
       updated_at BIGINT NOT NULL
     )
   `;
+  // Added when the copywriting provider picker was introduced — ADD COLUMN
+  // IF NOT EXISTS so this migrates existing deployed tables in place rather
+  // than only affecting fresh installs (CREATE TABLE IF NOT EXISTS above is
+  // a no-op once the table already exists).
+  await db`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS copy_provider TEXT`;
+  await db`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS gemini_copy_model TEXT`;
+  await db`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS openai_api_key_enc TEXT`;
+  await db`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS openai_model TEXT`;
+  await db`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS custom_api_key_enc TEXT`;
+  await db`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS custom_model TEXT`;
+  await db`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS custom_base_url TEXT`;
   await db`
     CREATE TABLE IF NOT EXISTS carousels (
       id TEXT PRIMARY KEY,

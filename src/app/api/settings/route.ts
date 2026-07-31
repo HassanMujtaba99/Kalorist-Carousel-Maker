@@ -31,8 +31,15 @@ export async function PUT(req: NextRequest) {
     geminiApiKey: body.geminiApiKey ?? "",
     geminiModel: body.geminiModel ?? "",
     usdaApiKey: body.usdaApiKey ?? "",
+    copyProvider: body.copyProvider ?? "anthropic",
     anthropicApiKey: body.anthropicApiKey ?? "",
     anthropicModel: body.anthropicModel ?? "",
+    geminiCopyModel: body.geminiCopyModel ?? "",
+    openaiApiKey: body.openaiApiKey ?? "",
+    openaiModel: body.openaiModel ?? "",
+    customApiKey: body.customApiKey ?? "",
+    customModel: body.customModel ?? "",
+    customBaseUrl: body.customBaseUrl ?? "",
   };
 
   await saveUserSettings(user.id, settings);

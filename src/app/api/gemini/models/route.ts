@@ -19,8 +19,16 @@ function looksImageCapable(model: GeminiModel): boolean {
   return supportsGenerate && (name.includes("image") || name.includes("imagen"));
 }
 
+function looksTextCapable(model: GeminiModel): boolean {
+  const name = model.name.toLowerCase();
+  const supportsGenerate = (model.supportedGenerationMethods ?? []).includes(
+    "generateContent"
+  );
+  return supportsGenerate && !name.includes("image") && !name.includes("imagen");
+}
+
 export async function POST(req: NextRequest) {
-  let body: { apiKey?: string };
+  let body: { apiKey?: string; purpose?: "image" | "text" };
   try {
     body = await req.json();
   } catch {
@@ -28,6 +36,7 @@ export async function POST(req: NextRequest) {
   }
 
   const apiKey = body.apiKey?.trim();
+  const purpose = body.purpose === "text" ? "text" : "image";
   if (!apiKey) {
     return NextResponse.json(
       { error: "Missing Gemini API key. Add it above first." },
@@ -68,7 +77,7 @@ export async function POST(req: NextRequest) {
 
   const data = (await upstream.json()) as GeminiModelsResponse;
   const models = (data.models ?? [])
-    .filter(looksImageCapable)
+    .filter(purpose === "text" ? looksTextCapable : looksImageCapable)
     .map((m) => ({
       id: m.name.replace(/^models\//, ""),
       displayName: m.displayName || m.name.replace(/^models\//, ""),

@@ -83,10 +83,23 @@ export interface CarouselState {
   cta: Slide;
 }
 
+/** Which provider drafts on-slide copy (headlines, labels, CTAs). Image
+ * generation is unaffected — that always uses Gemini. */
+export type CopyProvider = "anthropic" | "gemini" | "openai" | "custom";
+
 export interface AppSettings {
   geminiApiKey: string;
   geminiModel: string;
   usdaApiKey: string;
+  copyProvider: CopyProvider;
   anthropicApiKey: string;
   anthropicModel: string;
+  /** Text model for copy drafting — reuses geminiApiKey above. */
+  geminiCopyModel: string;
+  openaiApiKey: string;
+  openaiModel: string;
+  /** Any OpenAI-compatible chat completions endpoint (Groq, Mistral, a local Ollama, etc). */
+  customApiKey: string;
+  customModel: string;
+  customBaseUrl: string;
 }

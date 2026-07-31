@@ -1,30 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import type { FoodItem, ThisOrThatSlideData } from "@/lib/types";
+import type { AppSettings, FoodItem, ThisOrThatSlideData } from "@/lib/types";
 import { FoodPicker } from "../FoodPicker";
 import { FoodChip } from "../FoodChip";
 import { sumCalories } from "@/lib/nutrition";
-import { draftCopy } from "@/lib/claudeClient";
+import { draftCopy, activeCopyApiKey, copyProviderLabel } from "@/lib/copyProvider";
 import { buildThisOrThatLabelsPrompt, parseThisOrThatLabels } from "@/lib/copyAssist";
 
 interface Props {
   data: ThisOrThatSlideData;
   usdaApiKey: string;
-  anthropicApiKey: string;
-  anthropicModel: string;
+  settings: AppSettings;
   onChange: (data: ThisOrThatSlideData) => void;
 }
 
 export function ThisOrThatSlideEditor({
   data,
   usdaApiKey,
-  anthropicApiKey,
-  anthropicModel,
+  settings,
   onChange,
 }: Props) {
   const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const providerLabel = copyProviderLabel(settings.copyProvider);
 
   const addTo = (side: "leftItems" | "rightItems") => (item: FoodItem) => {
     onChange({ ...data, [side]: [...data[side], item] });
@@ -35,8 +34,8 @@ export function ThisOrThatSlideEditor({
     };
 
   const draftLabels = async () => {
-    if (!anthropicApiKey.trim()) {
-      setError("Add your Anthropic API key in Settings first.");
+    if (!activeCopyApiKey(settings).trim()) {
+      setError(`Add your ${providerLabel} API key in Settings first.`);
       return;
     }
     setDrafting(true);
@@ -49,12 +48,11 @@ export function ThisOrThatSlideEditor({
           data.leftItems,
           data.rightItems
         ),
-        anthropicApiKey,
-        anthropicModel
+        settings
       );
       const parsed = parseThisOrThatLabels(text);
       if (!parsed) {
-        setError("Couldn't parse Claude's response — try again.");
+        setError(`Couldn't parse ${providerLabel}'s response — try again.`);
         return;
       }
       onChange({ ...data, leftLabel: parsed.left, rightLabel: parsed.right });
@@ -77,7 +75,7 @@ export function ThisOrThatSlideEditor({
           disabled={drafting}
           className="text-xs font-bold text-purple hover:underline disabled:opacity-50"
         >
-          {drafting ? "Drafting…" : "Draft labels with Claude"}
+          {drafting ? "Drafting…" : `Draft labels with ${providerLabel}`}
         </button>
       </div>
       {error && <p className="text-xs font-semibold text-purple">{error}</p>}
