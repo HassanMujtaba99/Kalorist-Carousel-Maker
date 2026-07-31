@@ -13,6 +13,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   anthropicModel: "claude-sonnet-5",
 };
 
+type SyncStatus = "idle" | "syncing" | "synced" | "error";
+
 function loadLocalSettings(): AppSettings {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -34,6 +36,7 @@ function loadLocalSettings(): AppSettings {
 export function useSettings(userId: string | null) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loaded, setLoaded] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const syncedUserId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -45,6 +48,7 @@ export function useSettings(userId: string | null) {
   useEffect(() => {
     if (!loaded || !userId || syncedUserId.current === userId) return;
     syncedUserId.current = userId;
+    setSyncStatus("syncing");
     (async () => {
       try {
         const res = await fetch("/api/settings");
@@ -58,8 +62,10 @@ export function useSettings(userId: string | null) {
             body: JSON.stringify(settings),
           });
         }
+        setSyncStatus("synced");
       } catch {
         // account sync is best-effort; local state stays usable either way
+        setSyncStatus("error");
       }
     })();
     // Deliberately omitting `settings` — this should only re-run when the
@@ -78,14 +84,23 @@ export function useSettings(userId: string | null) {
       }
       return;
     }
+    // Reflects that a debounced sync is about to run; the actual write happens below.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSyncStatus("syncing");
     const timeout = setTimeout(() => {
       fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
-      }).catch(() => {
-        // best-effort; user's in-memory state is unaffected
-      });
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Sync failed");
+          setSyncStatus("synced");
+        })
+        .catch(() => {
+          // best-effort; user's in-memory state is unaffected
+          setSyncStatus("error");
+        });
     }, 600);
     return () => clearTimeout(timeout);
   }, [settings, userId, loaded]);
@@ -94,5 +109,5 @@ export function useSettings(userId: string | null) {
     setSettings((prev) => ({ ...prev, ...patch }));
   };
 
-  return { settings, update, loaded };
+  return { settings, update, loaded, syncStatus };
 }

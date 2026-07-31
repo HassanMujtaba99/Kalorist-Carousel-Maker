@@ -9,9 +9,18 @@ import { ModelPickerField } from "./ModelPickerField";
 interface Props {
   settings: AppSettings;
   onChange: (patch: Partial<AppSettings>) => void;
+  signedIn: boolean;
+  syncStatus: "idle" | "syncing" | "synced" | "error";
 }
 
-export function SettingsPanel({ settings, onChange }: Props) {
+const SYNC_STATUS_LABEL: Record<Props["syncStatus"], string> = {
+  idle: "",
+  syncing: "Saving to your account…",
+  synced: "Saved to your account",
+  error: "Couldn't sync to your account — retrying on next change",
+};
+
+export function SettingsPanel({ settings, onChange, signedIn, syncStatus }: Props) {
   const [open, setOpen] = useState(false);
   const hasGeminiKey = settings.geminiApiKey.trim().length > 0;
 
@@ -38,11 +47,35 @@ export function SettingsPanel({ settings, onChange }: Props) {
 
       {open && (
         <div className="space-y-4 border-t-2 border-ink px-4 py-4">
-          <p className="text-sm text-ink/60">
-            Keys are stored only in this browser&apos;s local storage and sent
-            directly to your own API routes on each request. They are never
-            written to a database or server-side file.
-          </p>
+          {signedIn ? (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-ink/60">
+                Keys sync automatically to your account (encrypted at rest)
+                as you type, so they follow you across devices. Nothing else
+                needs to be clicked — this just confirms it&apos;s working.
+              </p>
+              {syncStatus !== "idle" && (
+                <span
+                  className={`kal-pill shrink-0 whitespace-nowrap !bg-transparent !text-xs ${
+                    syncStatus === "error"
+                      ? "!border-red-600 !text-red-600"
+                      : syncStatus === "syncing"
+                        ? "!border-ink/30 !text-ink/50"
+                        : "!border-lime-dark !text-ink"
+                  }`}
+                >
+                  {SYNC_STATUS_LABEL[syncStatus]}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-ink/60">
+              Keys are stored only in this browser&apos;s local storage and
+              sent directly to your own API routes on each request. Sign in
+              (see the Account panel above) to sync them to your account
+              instead.
+            </p>
+          )}
 
           <label className="block text-sm">
             <span className="kal-label">

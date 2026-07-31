@@ -28,7 +28,9 @@ export function CarouselBuilder() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const user = session?.user ?? null;
   const { guest, loaded: guestLoaded, continueAsGuest } = useGuestMode();
-  const { settings, update, loaded } = useSettings(user?.id ?? null);
+  const { settings, update, loaded, syncStatus: settingsSyncStatus } = useSettings(
+    user?.id ?? null
+  );
   const [carousel, setCarousel] = useState(emptyCarousel());
   const [busy, setBusy] = useState(false);
 
@@ -201,7 +203,12 @@ export function CarouselBuilder() {
 
       <AuthPanel user={user} onSignOut={() => authClient.signOut()} />
 
-      <SettingsPanel settings={settings} onChange={update} />
+      <SettingsPanel
+        settings={settings}
+        onChange={update}
+        signedIn={!!user}
+        syncStatus={settingsSyncStatus}
+      />
 
       {user && (
         <MyCarouselsPanel
