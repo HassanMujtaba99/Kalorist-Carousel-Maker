@@ -13,12 +13,12 @@ export function WelcomeGate({ onContinueAsGuest }: Props) {
   const [mode, setMode] = useState<"login" | "signup">("signup");
 
   return (
-    <div className="mx-auto flex max-w-md flex-col justify-center px-4 py-12">
-      <div className="mb-6 text-center">
+    <div className="mx-auto flex max-w-md flex-col justify-center gap-6 px-4 py-12">
+      <div className="flex flex-col gap-2 text-center">
         <h1 className="text-2xl font-extrabold tracking-tight text-ink">
           Welcome to Carousel Maker
         </h1>
-        <p className="mt-2 text-sm text-ink/60">
+        <p className="text-sm text-ink/60">
           Sign up or log in to save your API keys and carousels to your
           account, or continue as a guest — everything then stays in this
           browser only.
@@ -51,23 +51,27 @@ export function WelcomeGate({ onContinueAsGuest }: Props) {
         </AuthWidgetBoundary>
       </div>
 
-      <div className="mt-4 flex items-center gap-3">
-        <span className="h-px flex-1 bg-ink/15" />
-        <span className="text-xs font-bold tracking-wide text-ink/40 uppercase">or</span>
-        <span className="h-px flex-1 bg-ink/15" />
-      </div>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-ink/15" />
+          <span className="text-xs font-bold tracking-wide text-ink/40 uppercase">or</span>
+          <span className="h-px flex-1 bg-ink/15" />
+        </div>
 
-      <button
-        type="button"
-        onClick={onContinueAsGuest}
-        className="kal-btn-secondary mt-4 w-full"
-      >
-        Continue as guest
-      </button>
-      <p className="mt-2 text-center text-xs text-ink/45">
-        No account, no data leaves your browser. You can sign up later
-        without losing anything.
-      </p>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={onContinueAsGuest}
+            className="kal-btn-secondary w-full"
+          >
+            Continue as guest
+          </button>
+          <p className="text-center text-xs text-ink/45">
+            No account, no data leaves your browser. You can sign up later
+            without losing anything.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
