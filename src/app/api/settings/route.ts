@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserFromRequest } from "@/lib/server/auth";
+import { stackServerApp } from "@/stack";
 import { getUserSettings, saveUserSettings } from "@/lib/server/settingsRepo";
 import type { AppSettings } from "@/lib/types";
 
-export async function GET(req: NextRequest) {
-  const user = await getUserFromRequest(req);
+export async function GET() {
+  const user = await stackServerApp.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const user = await getUserFromRequest(req);
+  const user = await stackServerApp.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }

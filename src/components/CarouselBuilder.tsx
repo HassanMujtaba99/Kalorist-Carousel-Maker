@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import JSZip from "jszip";
-import { useAuth } from "@/hooks/useAuth";
+import { useUser } from "@stackframe/stack";
 import { useSettings } from "@/hooks/useSettings";
 import { emptyCarousel, createSlide, CONTENT_SLIDE_KINDS } from "@/lib/carousel";
 import { buildSlidePrompt } from "@/lib/promptBuilder";
@@ -23,8 +23,8 @@ import { SlideCard } from "./SlideCard";
 import { AddContentSlideButton } from "./AddContentSlideButton";
 
 export function CarouselBuilder() {
-  const auth = useAuth();
-  const { settings, update, loaded } = useSettings(auth.user?.id ?? null);
+  const user = useUser();
+  const { settings, update, loaded } = useSettings(user?.id ?? null);
   const [carousel, setCarousel] = useState(emptyCarousel());
   const [busy, setBusy] = useState(false);
 
@@ -34,7 +34,7 @@ export function CarouselBuilder() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!auth.user) {
+    if (!user) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSavedCarousels([]);
       setActiveCarouselId(null);
@@ -43,7 +43,7 @@ export function CarouselBuilder() {
     listSavedCarousels()
       .then(setSavedCarousels)
       .catch(() => {});
-  }, [auth.user]);
+  }, [user]);
 
   const allSlides = [carousel.cover, ...carousel.content, carousel.cta];
 
@@ -191,17 +191,11 @@ export function CarouselBuilder() {
         </p>
       </header>
 
-      <AuthPanel
-        user={auth.user}
-        loaded={auth.loaded}
-        onSignup={auth.signup}
-        onLogin={auth.login}
-        onLogout={auth.logout}
-      />
+      <AuthPanel user={user} onSignOut={() => user?.signOut()} />
 
       <SettingsPanel settings={settings} onChange={update} />
 
-      {auth.user && (
+      {user && (
         <MyCarouselsPanel
           carousels={savedCarousels}
           activeId={activeCarouselId}

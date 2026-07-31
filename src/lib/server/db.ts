@@ -23,26 +23,16 @@ export function sql() {
   return global.__kaloristSql;
 }
 
+/**
+ * Identity is owned by Neon Auth (Stack Auth) now, not this schema — user_id
+ * columns below just store their user id as plain text, with no local FK,
+ * since that users table lives outside this database's control.
+ */
 async function createSchema(): Promise<void> {
   const db = sql();
   await db`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      created_at BIGINT NOT NULL
-    )
-  `;
-  await db`
-    CREATE TABLE IF NOT EXISTS sessions (
-      token TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      expires_at BIGINT NOT NULL
-    )
-  `;
-  await db`
     CREATE TABLE IF NOT EXISTS user_settings (
-      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      user_id TEXT PRIMARY KEY,
       gemini_api_key_enc TEXT,
       gemini_model TEXT,
       usda_api_key_enc TEXT,
@@ -54,14 +44,13 @@ async function createSchema(): Promise<void> {
   await db`
     CREATE TABLE IF NOT EXISTS carousels (
       id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL,
       title TEXT NOT NULL,
       data_json TEXT NOT NULL,
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL
     )
   `;
-  await db`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)`;
   await db`CREATE INDEX IF NOT EXISTS idx_carousels_user ON carousels(user_id)`;
 }
 

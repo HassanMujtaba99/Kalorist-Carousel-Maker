@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserFromRequest } from "@/lib/server/auth";
+import { stackServerApp } from "@/stack";
 import { createCarousel, listCarousels } from "@/lib/server/carouselsRepo";
 import type { CarouselState } from "@/lib/types";
 
-export async function GET(req: NextRequest) {
-  const user = await getUserFromRequest(req);
+export async function GET() {
+  const user = await stackServerApp.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUserFromRequest(req);
+  const user = await stackServerApp.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }

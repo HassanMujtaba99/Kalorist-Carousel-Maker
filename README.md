@@ -52,21 +52,41 @@ you're calling.
 
 ### Signed-in (optional): synced account
 
-Creating an account (email + password) additionally saves your keys and
+Signing in (Google, or email/password) additionally saves your keys and
 carousels to a Postgres database ([Neon](https://neon.tech) is the intended
 provider — serverless Postgres with a free tier), so they follow you across
 devices/browsers:
 
-- Passwords are hashed with bcrypt; sessions use a random-token httpOnly
-  cookie.
-- API keys are encrypted at rest with AES-256-GCM using the `ENCRYPTION_KEY`
-  environment variable (see `.env.example` — generate one with
-  `openssl rand -base64 32`).
+- Identity/sign-in is handled by **Neon Auth** (built on
+  [Stack Auth](https://stack-auth.com)) — enable it in the Neon Console for
+  your project (**Project → Auth tab → Enable**), which provisions
+  `NEXT_PUBLIC_STACK_PROJECT_ID`, `NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY`,
+  and `STACK_SECRET_SERVER_KEY` for you automatically — copy them into your
+  environment (see `.env.example`).
+  - **Google** sign-in works immediately — Stack Auth provides shared dev
+    OAuth keys, no setup required to test.
+  - **Apple** sign-in requires your own Apple Developer Program account
+    (Services ID, Team ID, Key ID, private key), configured in the Neon
+    Auth / Stack Auth dashboard under **Auth methods → OAuth providers →
+    Apple**. This is an Apple platform requirement — no auth provider can
+    bypass it. Once enabled there, the Apple button appears automatically;
+    no code change needed.
+  - Email/password sign-in is also available out of the box.
+- ⚠️ **Build-time requirement**: unlike the other env vars, the three
+  `STACK_*` variables are validated when the app boots — `next build` (and
+  therefore a Vercel deploy) will **fail outright**, not just misbehave at
+  runtime, if they're missing or malformed. Add them before deploying this
+  version.
+- API keys (Gemini/USDA/Anthropic) are still encrypted at rest with
+  AES-256-GCM using the `ENCRYPTION_KEY` environment variable (generate one
+  with `openssl rand -base64 32`) — Neon Auth only replaces the identity
+  layer, not this encryption.
 - Saved carousels (including generated slide images) are stored per-account
   and only ever readable by that account.
-- Uses `@neondatabase/serverless`'s HTTP driver — no persistent connection
-  pool to manage, so this works on serverless platforms (Vercel included),
-  unlike a typical file-based database.
+- Uses `@neondatabase/serverless`'s HTTP driver for `user_settings`/
+  `carousels` — no persistent connection pool to manage, so this works on
+  serverless platforms (Vercel included), unlike a typical file-based
+  database.
 
 ## Getting started
 
@@ -87,11 +107,14 @@ npx neonctl@latest init   # creates a free Neon project, prints a connection str
 
 Copy that connection string into `DATABASE_URL` in `.env.local` (copy
 `.env.example` to start), along with an `ENCRYPTION_KEY`
-(`openssl rand -base64 32`). The schema (`users`, `sessions`,
-`user_settings`, `carousels`) is created automatically on first request —
-no separate migration step. Without `DATABASE_URL`/`ENCRYPTION_KEY` set, the
-app still works fully in signed-out (BYOK) mode; accounts just won't be
-available.
+(`openssl rand -base64 32`) and the three `NEXT_PUBLIC_STACK_*` /
+`STACK_SECRET_SERVER_KEY` values from Neon Auth (Project → Auth tab →
+Enable, in the Neon Console). The `user_settings`/`carousels` schema is
+created automatically on first request — no separate migration step.
+Without `DATABASE_URL`/`ENCRYPTION_KEY` set, the app still works fully in
+signed-out (BYOK) mode; accounts just won't be available. The `STACK_*`
+vars, however, are required for the app to even build once Neon Auth is
+wired in — see the build-time warning above.
 
 ## Project structure
 
@@ -100,27 +123,34 @@ available.
   and model listing.
 - `src/app/api/claude/{generate-copy,models}` — proxies Claude copy
   generation and model listing.
-- `src/app/api/auth/*`, `src/app/api/settings`, `src/app/api/carousels/*` —
-  accounts, encrypted settings, and saved carousels.
+- `src/app/api/settings`, `src/app/api/carousels/*` — encrypted settings and
+  saved carousels, gated on the signed-in Neon Auth user.
+- `src/app/handler/[...stack]` — Neon Auth's hosted pages (OAuth callback,
+  account settings, password reset). Most users never see this directly —
+  the in-app Account panel embeds sign-in/sign-up inline.
+- `src/stack.ts` — Neon Auth (Stack Auth) server app config.
 - `src/lib/nutrition.ts` — normalizes raw USDA results into calories/protein.
 - `src/lib/promptBuilder.ts` — turns slide data + USDA figures into an image
   generation prompt per slide template.
 - `src/lib/copyAssist.ts` — builds the Claude copywriting prompts.
-- `src/lib/server/` — Postgres access (`db.ts`), auth, and AES-256-GCM
-  encryption helpers (server-only).
+- `src/lib/server/` — Postgres access (`db.ts`) and AES-256-GCM encryption
+  helpers (server-only).
 - `src/components/` — carousel builder UI, slide editors, USDA food picker,
   auth panel.
 
 ## Deploying
 
 This is a standard Next.js app and deploys anywhere Next.js runs, including
-serverless platforms like Vercel — set `DATABASE_URL` and `ENCRYPTION_KEY`
-as environment variables there to enable accounts.
+serverless platforms like Vercel.
 
 ```bash
 npm run build
 npm run start
 ```
 
-Without `DATABASE_URL`/`ENCRYPTION_KEY` set, the app still works fully in
-signed-out (BYOK) mode — accounts/save-to-server just won't be available.
+**The three `STACK_*` variables are required for the app to build at all**
+(Neon Auth wraps the whole app in the root layout, so it's no longer
+optional infrastructure the way `DATABASE_URL`/`ENCRYPTION_KEY` are). Set
+all five variables — `DATABASE_URL`, `ENCRYPTION_KEY`,
+`NEXT_PUBLIC_STACK_PROJECT_ID`, `NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY`,
+`STACK_SECRET_SERVER_KEY` — before deploying.
