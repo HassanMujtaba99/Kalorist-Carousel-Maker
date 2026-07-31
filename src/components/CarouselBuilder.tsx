@@ -3,43 +3,48 @@
 import { useState } from "react";
 import JSZip from "jszip";
 import { useSettings } from "@/hooks/useSettings";
-import { emptyCarousel, createSlide, slideKindLabel } from "@/lib/carousel";
+import { emptyCarousel, createSlide, CONTENT_SLIDE_KINDS } from "@/lib/carousel";
 import { buildSlidePrompt } from "@/lib/promptBuilder";
 import { generateSlideImage } from "@/lib/geminiClient";
 import type { Slide, SlideData, SlideKind } from "@/lib/types";
 import { SettingsPanel } from "./SettingsPanel";
 import { SlideCard } from "./SlideCard";
-
-const SLIDE_KINDS: SlideKind[] = ["title", "this-or-that", "day-on-a-plate", "cta"];
+import { AddContentSlideButton } from "./AddContentSlideButton";
 
 export function CarouselBuilder() {
   const { settings, update, loaded } = useSettings();
   const [carousel, setCarousel] = useState(emptyCarousel());
   const [busy, setBusy] = useState(false);
 
-  const addSlide = (kind: SlideKind) => {
-    setCarousel((c) => ({ ...c, slides: [...c.slides, createSlide(kind)] }));
+  const allSlides = [carousel.cover, ...carousel.content, carousel.cta];
+
+  const addContentSlide = (kind: SlideKind) => {
+    setCarousel((c) => ({ ...c, content: [...c.content, createSlide(kind)] }));
+  };
+
+  const removeContentSlide = (id: string) => {
+    setCarousel((c) => ({ ...c, content: c.content.filter((s) => s.id !== id) }));
+  };
+
+  const moveContentSlide = (id: string, direction: -1 | 1) => {
+    setCarousel((c) => {
+      const idx = c.content.findIndex((s) => s.id === id);
+      const newIdx = idx + direction;
+      if (idx < 0 || newIdx < 0 || newIdx >= c.content.length) return c;
+      const content = [...c.content];
+      [content[idx], content[newIdx]] = [content[newIdx], content[idx]];
+      return { ...c, content };
+    });
   };
 
   const updateSlide = (id: string, patch: Partial<Slide>) => {
-    setCarousel((c) => ({
-      ...c,
-      slides: c.slides.map((s) => (s.id === id ? { ...s, ...patch } : s)),
-    }));
-  };
-
-  const removeSlide = (id: string) => {
-    setCarousel((c) => ({ ...c, slides: c.slides.filter((s) => s.id !== id) }));
-  };
-
-  const moveSlide = (id: string, direction: -1 | 1) => {
     setCarousel((c) => {
-      const idx = c.slides.findIndex((s) => s.id === id);
-      const newIdx = idx + direction;
-      if (idx < 0 || newIdx < 0 || newIdx >= c.slides.length) return c;
-      const slides = [...c.slides];
-      [slides[idx], slides[newIdx]] = [slides[newIdx], slides[idx]];
-      return { ...c, slides };
+      if (c.cover.id === id) return { ...c, cover: { ...c.cover, ...patch } };
+      if (c.cta.id === id) return { ...c, cta: { ...c.cta, ...patch } };
+      return {
+        ...c,
+        content: c.content.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+      };
     });
   };
 
@@ -67,7 +72,7 @@ export function CarouselBuilder() {
 
   const generateAll = async () => {
     setBusy(true);
-    for (const slide of carousel.slides) {
+    for (const slide of allSlides) {
       await generateSlide(slide);
     }
     setBusy(false);
@@ -75,7 +80,7 @@ export function CarouselBuilder() {
 
   const exportZip = async () => {
     const zip = new JSZip();
-    carousel.slides.forEach((slide, i) => {
+    allSlides.forEach((slide, i) => {
       if (!slide.imageDataUrl) return;
       const base64 = slide.imageDataUrl.split(",")[1];
       zip.file(`slide-${i + 1}.png`, base64, { base64: true });
@@ -89,7 +94,7 @@ export function CarouselBuilder() {
     URL.revokeObjectURL(url);
   };
 
-  const generatedCount = carousel.slides.filter((s) => s.status === "done").length;
+  const generatedCount = allSlides.filter((s) => s.status === "done").length;
 
   if (!loaded) return null;
 
@@ -133,65 +138,78 @@ export function CarouselBuilder() {
       </section>
 
       <section className="space-y-3">
-        {carousel.slides.length === 0 && (
+        <span className="pl-1 text-xs font-bold tracking-wide text-ink/40 uppercase">
+          Cover
+        </span>
+        <SlideCard
+          slide={carousel.cover}
+          displayNumber={1}
+          usdaApiKey={settings.usdaApiKey}
+          onChangeData={(data: SlideData) => updateSlide(carousel.cover.id, { data })}
+          onGenerate={() => generateSlide(carousel.cover)}
+          locked
+        />
+
+        <span className="block pt-2 pl-1 text-xs font-bold tracking-wide text-ink/40 uppercase">
+          Content
+        </span>
+        {carousel.content.length === 0 && (
           <p className="rounded-2xl border-2 border-dashed border-ink/20 bg-white/60 p-6 text-center text-sm text-ink/50">
-            Add your first slide below to get started.
+            No content slides yet — add one below.
           </p>
         )}
-        {carousel.slides.map((slide, i) => (
+        {carousel.content.map((slide, i) => (
           <SlideCard
             key={slide.id}
             slide={slide}
-            index={i}
-            total={carousel.slides.length}
+            displayNumber={i + 2}
             usdaApiKey={settings.usdaApiKey}
             onChangeData={(data: SlideData) => updateSlide(slide.id, { data })}
             onGenerate={() => generateSlide(slide)}
-            onRemove={() => removeSlide(slide.id)}
-            onMove={(dir) => moveSlide(slide.id, dir)}
+            onRemove={() => removeContentSlide(slide.id)}
+            onMoveUp={() => moveContentSlide(slide.id, -1)}
+            onMoveDown={() => moveContentSlide(slide.id, 1)}
+            canMoveUp={i > 0}
+            canMoveDown={i < carousel.content.length - 1}
           />
         ))}
-      </section>
 
-      <section className="kal-card flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-xs font-bold tracking-wide text-ink/50 uppercase">
-          Add slide
+        <AddContentSlideButton kinds={CONTENT_SLIDE_KINDS} onAdd={addContentSlide} />
+
+        <span className="block pt-1 pl-1 text-xs font-bold tracking-wide text-ink/40 uppercase">
+          Closing
         </span>
-        {SLIDE_KINDS.map((kind) => (
-          <button
-            key={kind}
-            type="button"
-            onClick={() => addSlide(kind)}
-            className="kal-btn-ghost"
-          >
-            + {slideKindLabel(kind)}
-          </button>
-        ))}
+        <SlideCard
+          slide={carousel.cta}
+          displayNumber={allSlides.length}
+          usdaApiKey={settings.usdaApiKey}
+          onChangeData={(data: SlideData) => updateSlide(carousel.cta.id, { data })}
+          onGenerate={() => generateSlide(carousel.cta)}
+          locked
+        />
       </section>
 
-      {carousel.slides.length > 0 && (
-        <section className="kal-card flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={generateAll}
-            disabled={busy}
-            className="kal-btn-primary"
-          >
-            {busy ? "Generating all…" : "Generate all slides"}
-          </button>
-          <button
-            type="button"
-            onClick={exportZip}
-            disabled={generatedCount === 0}
-            className="kal-btn-secondary"
-          >
-            Download all as ZIP
-          </button>
-          <span className="kal-pill">
-            {generatedCount}/{carousel.slides.length} generated
-          </span>
-        </section>
-      )}
+      <section className="kal-card flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={generateAll}
+          disabled={busy}
+          className="kal-btn-primary"
+        >
+          {busy ? "Generating all…" : "Generate all slides"}
+        </button>
+        <button
+          type="button"
+          onClick={exportZip}
+          disabled={generatedCount === 0}
+          className="kal-btn-secondary"
+        >
+          Download all as ZIP
+        </button>
+        <span className="kal-pill">
+          {generatedCount}/{allSlides.length} generated
+        </span>
+      </section>
     </div>
   );
 }

@@ -15,11 +15,20 @@ export function newId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/**
+ * Content types that can be added to the variable middle of a carousel.
+ * Cover and CTA are fixed and not part of this list. More content types
+ * (e.g. "step-by-step") will be added here in the future.
+ */
+export const CONTENT_SLIDE_KINDS: SlideKind[] = ["this-or-that"];
+
 export function emptyCarousel(): CarouselState {
   return {
     title: "Untitled Carousel",
     brand: { name: "MY COACHING", accentColor: "#22c55e" },
-    slides: [],
+    cover: createSlide("title"),
+    content: [],
+    cta: createSlide("cta"),
   };
 }
 

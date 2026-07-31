@@ -1,30 +1,36 @@
 "use client";
 
-import type { Slide } from "@/lib/types";
+import type { Slide, SlideData } from "@/lib/types";
 import { slideKindLabel } from "@/lib/carousel";
 import { SlideEditor } from "./SlideEditor";
-import type { SlideData } from "@/lib/types";
 
 interface Props {
   slide: Slide;
-  index: number;
-  total: number;
+  displayNumber: number;
   usdaApiKey: string;
   onChangeData: (data: SlideData) => void;
   onGenerate: () => void;
-  onRemove: () => void;
-  onMove: (direction: -1 | 1) => void;
+  /** Cover and CTA slides are fixed in place and cannot be removed or reordered. */
+  locked?: boolean;
+  onRemove?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function SlideCard({
   slide,
-  index,
-  total,
+  displayNumber,
   usdaApiKey,
   onChangeData,
   onGenerate,
+  locked = false,
   onRemove,
-  onMove,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = false,
+  canMoveDown = false,
 }: Props) {
   return (
     <div className="kal-card grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
@@ -32,39 +38,43 @@ export function SlideCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-xs font-bold text-white">
-              {index + 1}
+              {displayNumber}
             </span>
             <span className="text-sm font-bold text-ink">
               {slideKindLabel(slide.data.kind)}
             </span>
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={index === 0}
-              onClick={() => onMove(-1)}
-              className="rounded-full px-2 py-1 text-xs font-bold disabled:opacity-30 hover:bg-lime/40"
-              aria-label="Move slide earlier"
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              disabled={index === total - 1}
-              onClick={() => onMove(1)}
-              className="rounded-full px-2 py-1 text-xs font-bold disabled:opacity-30 hover:bg-lime/40"
-              aria-label="Move slide later"
-            >
-              ↓
-            </button>
-            <button
-              type="button"
-              onClick={onRemove}
-              className="rounded-full px-2 py-1 text-xs font-bold text-purple hover:bg-purple/10"
-            >
-              Remove
-            </button>
-          </div>
+          {locked ? (
+            <span className="kal-pill">Fixed</span>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={!canMoveUp}
+                onClick={onMoveUp}
+                className="rounded-full px-2 py-1 text-xs font-bold disabled:opacity-30 hover:bg-lime/40"
+                aria-label="Move slide earlier"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                disabled={!canMoveDown}
+                onClick={onMoveDown}
+                className="rounded-full px-2 py-1 text-xs font-bold disabled:opacity-30 hover:bg-lime/40"
+                aria-label="Move slide later"
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                onClick={onRemove}
+                className="rounded-full px-2 py-1 text-xs font-bold text-purple hover:bg-purple/10"
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
 
         <SlideEditor slide={slide} usdaApiKey={usdaApiKey} onChange={onChangeData} />
@@ -94,7 +104,7 @@ export function SlideCard({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={slide.imageDataUrl}
-              alt={`Slide ${index + 1} preview`}
+              alt={`Slide ${displayNumber} preview`}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -106,7 +116,7 @@ export function SlideCard({
         {slide.imageDataUrl && (
           <a
             href={slide.imageDataUrl}
-            download={`slide-${index + 1}.png`}
+            download={`slide-${displayNumber}.png`}
             className="text-xs font-bold text-purple underline underline-offset-2"
           >
             Download PNG

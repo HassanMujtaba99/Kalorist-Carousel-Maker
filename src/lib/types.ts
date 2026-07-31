@@ -70,7 +70,17 @@ export interface CarouselBrand {
 export interface CarouselState {
   title: string;
   brand: CarouselBrand;
-  slides: Slide[];
+  /** Fixed opening slide — always present, always first, not reorderable. */
+  cover: Slide;
+  /**
+   * The variable middle of the carousel. Each entry is a "content slide" of
+   * some content type (today only "this-or-that"; more types like
+   * "step-by-step" will be added later). Freely addable, removable, and
+   * reorderable among themselves.
+   */
+  content: Slide[];
+  /** Fixed closing slide — always present, always last, not reorderable. */
+  cta: Slide;
 }
 
 export interface AppSettings {
