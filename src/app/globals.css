@@ -62,26 +62,36 @@ body {
   color: var(--foreground);
 }
 
-@layer components {
-  .kal-card {
-    @apply rounded-2xl border-2 border-ink bg-white p-4 shadow-[4px_4px_0_0_var(--color-ink)];
-  }
-  .kal-input {
-    @apply w-full rounded-xl border-2 border-ink/15 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-purple;
-  }
-  .kal-label {
-    @apply mb-1 block text-xs font-bold tracking-wide text-ink/60 uppercase;
-  }
-  .kal-btn-primary {
-    @apply rounded-full bg-purple px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-purple-dark disabled:cursor-not-allowed disabled:opacity-50;
-  }
-  .kal-btn-secondary {
-    @apply rounded-full border-2 border-purple bg-white px-4 py-2 text-sm font-bold text-purple transition-colors hover:bg-purple/10 disabled:cursor-not-allowed disabled:opacity-40;
-  }
-  .kal-btn-ghost {
-    @apply rounded-full border-2 border-ink/15 px-3 py-1.5 text-sm font-semibold transition-colors hover:border-ink hover:bg-lime/40;
-  }
-  .kal-pill {
-    @apply inline-flex items-center gap-1.5 rounded-full border-2 border-ink bg-lime px-3 py-1 text-xs font-bold text-ink;
-  }
+/* Deliberately NOT wrapped in @layer components. @neondatabase/auth-ui/css
+   bundles its own copy of Tailwind's preflight reset (button, input, select
+   { background-color: transparent; border-radius: 0; ... }), and when two
+   independently-compiled Tailwind v4 stylesheets share the document, their
+   same-named layers don't reliably merge in the order either side expects —
+   in practice their reset ended up outranking .kal-pill/.kal-btn-* even
+   though those are higher-specificity class selectors, because CSS cascade
+   layers override specificity entirely. Unlayered rules always beat layered
+   ones regardless of layer order, so keeping these outside any @layer makes
+   them immune to that collision no matter which build's reset loads last.
+   (Tailwind's `!`-important utilities, e.g. `kal-card !p-0`, still override
+   these correctly since !important always wins over non-important.) */
+.kal-card {
+  @apply rounded-2xl border-2 border-ink bg-white p-4 shadow-[4px_4px_0_0_var(--color-ink)];
+}
+.kal-input {
+  @apply w-full rounded-xl border-2 border-ink/15 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-purple;
+}
+.kal-label {
+  @apply mb-1 block text-xs font-bold tracking-wide text-ink/60 uppercase;
+}
+.kal-btn-primary {
+  @apply rounded-full bg-purple px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-purple-dark disabled:cursor-not-allowed disabled:opacity-50;
+}
+.kal-btn-secondary {
+  @apply rounded-full border-2 border-purple bg-white px-4 py-2 text-sm font-bold text-purple transition-colors hover:bg-purple/10 disabled:cursor-not-allowed disabled:opacity-40;
+}
+.kal-btn-ghost {
+  @apply rounded-full border-2 border-ink/15 px-3 py-1.5 text-sm font-semibold transition-colors hover:border-ink hover:bg-lime/40;
+}
+.kal-pill {
+  @apply inline-flex items-center gap-1.5 rounded-full border-2 border-ink bg-lime px-3 py-1 text-xs font-bold text-ink;
 }
