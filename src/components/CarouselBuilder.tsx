@@ -1,20 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import JSZip from "jszip";
+import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSettings";
 import { emptyCarousel, createSlide, CONTENT_SLIDE_KINDS } from "@/lib/carousel";
 import { buildSlidePrompt } from "@/lib/promptBuilder";
 import { generateSlideImage } from "@/lib/geminiClient";
+import {
+  createSavedCarousel,
+  deleteSavedCarousel,
+  listSavedCarousels,
+  loadSavedCarousel,
+  updateSavedCarousel,
+  type CarouselSummary,
+} from "@/lib/carouselsClient";
 import type { Slide, SlideData, SlideKind } from "@/lib/types";
+import { AuthPanel } from "./AuthPanel";
 import { SettingsPanel } from "./SettingsPanel";
+import { MyCarouselsPanel } from "./MyCarouselsPanel";
 import { SlideCard } from "./SlideCard";
 import { AddContentSlideButton } from "./AddContentSlideButton";
 
 export function CarouselBuilder() {
-  const { settings, update, loaded } = useSettings();
+  const auth = useAuth();
+  const { settings, update, loaded } = useSettings(auth.user?.id ?? null);
   const [carousel, setCarousel] = useState(emptyCarousel());
   const [busy, setBusy] = useState(false);
+
+  const [savedCarousels, setSavedCarousels] = useState<CarouselSummary[]>([]);
+  const [activeCarouselId, setActiveCarouselId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!auth.user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSavedCarousels([]);
+      setActiveCarouselId(null);
+      return;
+    }
+    listSavedCarousels()
+      .then(setSavedCarousels)
+      .catch(() => {});
+  }, [auth.user]);
 
   const allSlides = [carousel.cover, ...carousel.content, carousel.cta];
 
@@ -94,6 +123,56 @@ export function CarouselBuilder() {
     URL.revokeObjectURL(url);
   };
 
+  const saveCarousel = async () => {
+    setSaveStatus("saving");
+    setSaveError(null);
+    try {
+      if (activeCarouselId) {
+        await updateSavedCarousel(activeCarouselId, carousel);
+      } else {
+        const id = await createSavedCarousel(carousel);
+        setActiveCarouselId(id);
+      }
+      setSavedCarousels(await listSavedCarousels());
+      setSaveStatus("saved");
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Save failed");
+      setSaveStatus("error");
+    }
+  };
+
+  const loadCarousel = async (id: string) => {
+    try {
+      const data = await loadSavedCarousel(id);
+      setCarousel(data);
+      setActiveCarouselId(id);
+      setSaveStatus("idle");
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Load failed");
+      setSaveStatus("error");
+    }
+  };
+
+  const deleteCarousel = async (id: string) => {
+    try {
+      await deleteSavedCarousel(id);
+      setSavedCarousels(await listSavedCarousels());
+      if (activeCarouselId === id) {
+        setCarousel(emptyCarousel());
+        setActiveCarouselId(null);
+      }
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Delete failed");
+      setSaveStatus("error");
+    }
+  };
+
+  const startNewCarousel = () => {
+    setCarousel(emptyCarousel());
+    setActiveCarouselId(null);
+    setSaveStatus("idle");
+  };
+
   const generatedCount = allSlides.filter((s) => s.status === "done").length;
 
   if (!loaded) return null;
@@ -112,7 +191,28 @@ export function CarouselBuilder() {
         </p>
       </header>
 
+      <AuthPanel
+        user={auth.user}
+        loaded={auth.loaded}
+        onSignup={auth.signup}
+        onLogin={auth.login}
+        onLogout={auth.logout}
+      />
+
       <SettingsPanel settings={settings} onChange={update} />
+
+      {auth.user && (
+        <MyCarouselsPanel
+          carousels={savedCarousels}
+          activeId={activeCarouselId}
+          saveStatus={saveStatus}
+          saveError={saveError}
+          onSave={saveCarousel}
+          onNew={startNewCarousel}
+          onLoad={loadCarousel}
+          onDelete={deleteCarousel}
+        />
+      )}
 
       <section className="kal-card grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">
