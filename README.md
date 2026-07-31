@@ -53,7 +53,8 @@ you're calling.
 ### Signed-in (optional): synced account
 
 Creating an account (email + password) additionally saves your keys and
-carousels to a small server-side SQLite database, so they follow you across
+carousels to a Postgres database ([Neon](https://neon.tech) is the intended
+provider — serverless Postgres with a free tier), so they follow you across
 devices/browsers:
 
 - Passwords are hashed with bcrypt; sessions use a random-token httpOnly
@@ -63,14 +64,9 @@ devices/browsers:
   `openssl rand -base64 32`).
 - Saved carousels (including generated slide images) are stored per-account
   and only ever readable by that account.
-
-**Deployment note:** the accounts feature uses file-based SQLite
-(`better-sqlite3`), which needs a persistent, writable filesystem. That's
-fine for self-hosting (Docker, a VPS, PM2, Railway, Fly.io) but **not** for
-stateless serverless platforms like Vercel, where local disk is ephemeral —
-point `DATABASE_PATH` at a mounted volume there, or swap `src/lib/server/db.ts`
-for a hosted database. The rest of the app (BYOK image/copy generation,
-signed-out mode) works fine on Vercel regardless.
+- Uses `@neondatabase/serverless`'s HTTP driver — no persistent connection
+  pool to manage, so this works on serverless platforms (Vercel included),
+  unlike a typical file-based database.
 
 ## Getting started
 
@@ -81,8 +77,21 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000), open **Settings**, and
 paste in your Gemini API key (and optionally USDA/Anthropic keys). Then add
-slides and start generating. Accounts work out of the box in dev — set
-`ENCRYPTION_KEY` in `.env.local` first (copy `.env.example`).
+slides and start generating.
+
+Accounts need a Postgres database first:
+
+```bash
+npx neonctl@latest init   # creates a free Neon project, prints a connection string
+```
+
+Copy that connection string into `DATABASE_URL` in `.env.local` (copy
+`.env.example` to start), along with an `ENCRYPTION_KEY`
+(`openssl rand -base64 32`). The schema (`users`, `sessions`,
+`user_settings`, `carousels`) is created automatically on first request —
+no separate migration step. Without `DATABASE_URL`/`ENCRYPTION_KEY` set, the
+app still works fully in signed-out (BYOK) mode; accounts just won't be
+available.
 
 ## Project structure
 
@@ -97,20 +106,21 @@ slides and start generating. Accounts work out of the box in dev — set
 - `src/lib/promptBuilder.ts` — turns slide data + USDA figures into an image
   generation prompt per slide template.
 - `src/lib/copyAssist.ts` — builds the Claude copywriting prompts.
-- `src/lib/server/` — SQLite access, auth, and AES-256-GCM encryption helpers
-  (server-only).
+- `src/lib/server/` — Postgres access (`db.ts`), auth, and AES-256-GCM
+  encryption helpers (server-only).
 - `src/components/` — carousel builder UI, slide editors, USDA food picker,
   auth panel.
 
 ## Deploying
 
-This is a standard Next.js app.
+This is a standard Next.js app and deploys anywhere Next.js runs, including
+serverless platforms like Vercel — set `DATABASE_URL` and `ENCRYPTION_KEY`
+as environment variables there to enable accounts.
 
 ```bash
 npm run build
 npm run start
 ```
 
-Without `ENCRYPTION_KEY` set, the app still works fully in signed-out (BYOK)
-mode — accounts/save-to-server just won't be available. See the deployment
-note above regarding SQLite on serverless platforms.
+Without `DATABASE_URL`/`ENCRYPTION_KEY` set, the app still works fully in
+signed-out (BYOK) mode — accounts/save-to-server just won't be available.

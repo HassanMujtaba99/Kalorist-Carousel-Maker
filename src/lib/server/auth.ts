@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { NextRequest } from "next/server";
-import { getDb } from "./db";
+import { ensureSchema, sql } from "./db";
 
 export const SESSION_COOKIE = "kalorist_session";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
@@ -27,20 +27,22 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   return bcrypt.compare(password, hash);
 }
 
-export function findUserByEmail(email: string): UserRow | undefined {
-  return getDb()
-    .prepare("SELECT id, email, password_hash FROM users WHERE email = ?")
-    .get(email.trim().toLowerCase()) as UserRow | undefined;
+export async function findUserByEmail(email: string): Promise<UserRow | undefined> {
+  await ensureSchema();
+  const rows = (await sql()`
+    SELECT id, email, password_hash FROM users WHERE email = ${email.trim().toLowerCase()}
+  `) as UserRow[];
+  return rows[0];
 }
 
-export function createUser(email: string, passwordHash: string): User {
+export async function createUser(email: string, passwordHash: string): Promise<User> {
+  await ensureSchema();
   const id = crypto.randomUUID();
   const normalizedEmail = email.trim().toLowerCase();
-  getDb()
-    .prepare(
-      "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)"
-    )
-    .run(id, normalizedEmail, passwordHash, Date.now());
+  await sql()`
+    INSERT INTO users (id, email, password_hash, created_at)
+    VALUES (${id}, ${normalizedEmail}, ${passwordHash}, ${Date.now()})
+  `;
   return { id, email: normalizedEmail };
 }
 
@@ -48,44 +50,48 @@ export async function authenticate(
   email: string,
   password: string
 ): Promise<User | null> {
-  const row = findUserByEmail(email);
+  const row = await findUserByEmail(email);
   if (!row) return null;
   const ok = await verifyPassword(password, row.password_hash);
   if (!ok) return null;
   return { id: row.id, email: row.email };
 }
 
-export function createSession(userId: string): string {
+export async function createSession(userId: string): Promise<string> {
+  await ensureSchema();
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = Date.now() + SESSION_MAX_AGE_SECONDS * 1000;
-  getDb()
-    .prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)")
-    .run(token, userId, expiresAt);
+  await sql()`
+    INSERT INTO sessions (token, user_id, expires_at) VALUES (${token}, ${userId}, ${expiresAt})
+  `;
   return token;
 }
 
-export function deleteSession(token: string): void {
-  getDb().prepare("DELETE FROM sessions WHERE token = ?").run(token);
+export async function deleteSession(token: string): Promise<void> {
+  await ensureSchema();
+  await sql()`DELETE FROM sessions WHERE token = ${token}`;
 }
 
-export function getUserBySessionToken(token: string | undefined): User | null {
+export async function getUserBySessionToken(
+  token: string | undefined
+): Promise<User | null> {
   if (!token) return null;
-  const row = getDb()
-    .prepare(
-      `SELECT u.id, u.email, s.expires_at
-       FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token = ?`
-    )
-    .get(token) as { id: string; email: string; expires_at: number } | undefined;
+  await ensureSchema();
+  const rows = (await sql()`
+    SELECT u.id, u.email, s.expires_at
+    FROM sessions s JOIN users u ON u.id = s.user_id
+    WHERE s.token = ${token}
+  `) as { id: string; email: string; expires_at: number }[];
 
+  const row = rows[0];
   if (!row) return null;
-  if (row.expires_at < Date.now()) {
-    deleteSession(token);
+  if (Number(row.expires_at) < Date.now()) {
+    await deleteSession(token);
     return null;
   }
   return { id: row.id, email: row.email };
 }
 
-export function getUserFromRequest(req: NextRequest): User | null {
+export async function getUserFromRequest(req: NextRequest): Promise<User | null> {
   return getUserBySessionToken(req.cookies.get(SESSION_COOKIE)?.value);
 }

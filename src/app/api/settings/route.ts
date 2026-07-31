@@ -4,16 +4,16 @@ import { getUserSettings, saveUserSettings } from "@/lib/server/settingsRepo";
 import type { AppSettings } from "@/lib/types";
 
 export async function GET(req: NextRequest) {
-  const user = getUserFromRequest(req);
+  const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
-  const settings = getUserSettings(user.id);
+  const settings = await getUserSettings(user.id);
   return NextResponse.json({ settings });
 }
 
 export async function PUT(req: NextRequest) {
-  const user = getUserFromRequest(req);
+  const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
@@ -33,6 +33,6 @@ export async function PUT(req: NextRequest) {
     anthropicModel: body.anthropicModel ?? "",
   };
 
-  saveUserSettings(user.id, settings);
+  await saveUserSettings(user.id, settings);
   return NextResponse.json({ settings });
 }

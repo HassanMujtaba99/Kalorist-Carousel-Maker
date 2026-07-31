@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (findUserByEmail(email)) {
+  if (await findUserByEmail(email)) {
     return NextResponse.json(
       { error: "An account with that email already exists." },
       { status: 409 }
@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
   }
 
   const passwordHash = await hashPassword(password);
-  const user = createUser(email, passwordHash);
-  const token = createSession(user.id);
+  const user = await createUser(email, passwordHash);
+  const token = await createSession(user.id);
 
   const res = NextResponse.json({ user });
   setSessionCookie(res, token);

@@ -4,15 +4,15 @@ import { createCarousel, listCarousels } from "@/lib/server/carouselsRepo";
 import type { CarouselState } from "@/lib/types";
 
 export async function GET(req: NextRequest) {
-  const user = getUserFromRequest(req);
+  const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
-  return NextResponse.json({ carousels: listCarousels(user.id) });
+  return NextResponse.json({ carousels: await listCarousels(user.id) });
 }
 
 export async function POST(req: NextRequest) {
-  const user = getUserFromRequest(req);
+  const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
@@ -27,6 +27,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Malformed carousel payload." }, { status: 400 });
   }
 
-  const id = createCarousel(user.id, carousel);
+  const id = await createCarousel(user.id, carousel);
   return NextResponse.json({ id });
 }

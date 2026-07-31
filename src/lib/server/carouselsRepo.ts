@@ -1,13 +1,11 @@
 import crypto from "node:crypto";
-import { getDb } from "./db";
+import { ensureSchema, sql } from "./db";
 import type { CarouselState } from "@/lib/types";
 
 interface CarouselRow {
   id: string;
   title: string;
   data_json: string;
-  created_at: number;
-  updated_at: number;
 }
 
 export interface CarouselSummary {
@@ -16,56 +14,60 @@ export interface CarouselSummary {
   updatedAt: number;
 }
 
-export function listCarousels(userId: string): CarouselSummary[] {
-  const rows = getDb()
-    .prepare(
-      "SELECT id, title, updated_at FROM carousels WHERE user_id = ? ORDER BY updated_at DESC"
-    )
-    .all(userId) as { id: string; title: string; updated_at: number }[];
-  return rows.map((r) => ({ id: r.id, title: r.title, updatedAt: r.updated_at }));
+export async function listCarousels(userId: string): Promise<CarouselSummary[]> {
+  await ensureSchema();
+  const rows = (await sql()`
+    SELECT id, title, updated_at FROM carousels WHERE user_id = ${userId} ORDER BY updated_at DESC
+  `) as { id: string; title: string; updated_at: number }[];
+  return rows.map((r) => ({ id: r.id, title: r.title, updatedAt: Number(r.updated_at) }));
 }
 
-export function getCarousel(
+export async function getCarousel(
   userId: string,
   id: string
-): (CarouselState & { id: string }) | null {
-  const row = getDb()
-    .prepare("SELECT id, title, data_json FROM carousels WHERE id = ? AND user_id = ?")
-    .get(id, userId) as CarouselRow | undefined;
+): Promise<(CarouselState & { id: string }) | null> {
+  await ensureSchema();
+  const rows = (await sql()`
+    SELECT id, title, data_json FROM carousels WHERE id = ${id} AND user_id = ${userId}
+  `) as CarouselRow[];
+  const row = rows[0];
   if (!row) return null;
   const data = JSON.parse(row.data_json) as CarouselState;
   return { ...data, id: row.id };
 }
 
-export function createCarousel(userId: string, carousel: CarouselState): string {
+export async function createCarousel(
+  userId: string,
+  carousel: CarouselState
+): Promise<string> {
+  await ensureSchema();
   const id = crypto.randomUUID();
   const now = Date.now();
-  getDb()
-    .prepare(
-      `INSERT INTO carousels (id, user_id, title, data_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    )
-    .run(id, userId, carousel.title || "Untitled Carousel", JSON.stringify(carousel), now, now);
+  await sql()`
+    INSERT INTO carousels (id, user_id, title, data_json, created_at, updated_at)
+    VALUES (${id}, ${userId}, ${carousel.title || "Untitled Carousel"}, ${JSON.stringify(carousel)}, ${now}, ${now})
+  `;
   return id;
 }
 
-export function updateCarousel(
+export async function updateCarousel(
   userId: string,
   id: string,
   carousel: CarouselState
-): boolean {
-  const result = getDb()
-    .prepare(
-      `UPDATE carousels SET title = ?, data_json = ?, updated_at = ?
-       WHERE id = ? AND user_id = ?`
-    )
-    .run(carousel.title || "Untitled Carousel", JSON.stringify(carousel), Date.now(), id, userId);
-  return result.changes > 0;
+): Promise<boolean> {
+  await ensureSchema();
+  const rows = (await sql()`
+    UPDATE carousels SET title = ${carousel.title || "Untitled Carousel"}, data_json = ${JSON.stringify(carousel)}, updated_at = ${Date.now()}
+    WHERE id = ${id} AND user_id = ${userId}
+    RETURNING id
+  `) as { id: string }[];
+  return rows.length > 0;
 }
 
-export function deleteCarousel(userId: string, id: string): boolean {
-  const result = getDb()
-    .prepare("DELETE FROM carousels WHERE id = ? AND user_id = ?")
-    .run(id, userId);
-  return result.changes > 0;
+export async function deleteCarousel(userId: string, id: string): Promise<boolean> {
+  await ensureSchema();
+  const rows = (await sql()`
+    DELETE FROM carousels WHERE id = ${id} AND user_id = ${userId} RETURNING id
+  `) as { id: string }[];
+  return rows.length > 0;
 }

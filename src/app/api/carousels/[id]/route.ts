@@ -8,12 +8,12 @@ interface RouteContext {
 }
 
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const user = getUserFromRequest(req);
+  const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
   const { id } = await params;
-  const carousel = getCarousel(user.id, id);
+  const carousel = await getCarousel(user.id, id);
   if (!carousel) {
     return NextResponse.json({ error: "Carousel not found." }, { status: 404 });
   }
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 }
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
-  const user = getUserFromRequest(req);
+  const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
@@ -34,7 +34,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const ok = updateCarousel(user.id, id, carousel);
+  const ok = await updateCarousel(user.id, id, carousel);
   if (!ok) {
     return NextResponse.json({ error: "Carousel not found." }, { status: 404 });
   }
@@ -42,12 +42,12 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const user = getUserFromRequest(req);
+  const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
   const { id } = await params;
-  const ok = deleteCarousel(user.id, id);
+  const ok = await deleteCarousel(user.id, id);
   if (!ok) {
     return NextResponse.json({ error: "Carousel not found." }, { status: 404 });
   }

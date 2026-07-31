@@ -1,31 +1,46 @@
-import Database from "better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
+import { neon } from "@neondatabase/serverless";
 
-const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "app.db");
-
-declare global {
-  var __kaloristDb: Database.Database | undefined;
+function getConnectionString(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is not set. Create a Postgres database (e.g. `npx neonctl@latest init` at neon.tech) and add its connection string to your environment."
+    );
+  }
+  return url;
 }
 
-function createConnection(): Database.Database {
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-  db.exec(`
+declare global {
+  var __kaloristSql: ReturnType<typeof neon> | undefined;
+  var __kaloristSchemaReady: Promise<void> | undefined;
+}
+
+/** Lazy, memoized HTTP-based Postgres client (no persistent connection to pool — safe across serverless invocations). */
+export function sql() {
+  if (!global.__kaloristSql) {
+    global.__kaloristSql = neon(getConnectionString());
+  }
+  return global.__kaloristSql;
+}
+
+async function createSchema(): Promise<void> {
+  const db = sql();
+  await db`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    );
-
+      created_at BIGINT NOT NULL
+    )
+  `;
+  await db`
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      expires_at INTEGER NOT NULL
-    );
-
+      expires_at BIGINT NOT NULL
+    )
+  `;
+  await db`
     CREATE TABLE IF NOT EXISTS user_settings (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       gemini_api_key_enc TEXT,
@@ -33,36 +48,27 @@ function createConnection(): Database.Database {
       usda_api_key_enc TEXT,
       anthropic_api_key_enc TEXT,
       anthropic_model TEXT,
-      updated_at INTEGER NOT NULL
-    );
-
+      updated_at BIGINT NOT NULL
+    )
+  `;
+  await db`
     CREATE TABLE IF NOT EXISTS carousels (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       data_json TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_carousels_user ON carousels(user_id);
-  `);
-  return db;
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    )
+  `;
+  await db`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)`;
+  await db`CREATE INDEX IF NOT EXISTS idx_carousels_user ON carousels(user_id)`;
 }
 
-/**
- * Reused across hot reloads in dev (Next.js re-evaluates modules per
- * request in dev mode) and across serverless invocations that reuse the
- * same warm instance. NOTE: SQLite needs a persistent, writable filesystem
- * — this works for self-hosting (Docker/VPS/PM2) but NOT for stateless
- * serverless platforms like Vercel, where each instance's disk is ephemeral.
- * Point DATABASE_PATH at a mounted volume, or swap this module for a
- * hosted database, before deploying there.
- */
-export function getDb(): Database.Database {
-  if (!global.__kaloristDb) {
-    global.__kaloristDb = createConnection();
+/** Runs the CREATE TABLE IF NOT EXISTS migration once per warm instance. */
+export function ensureSchema(): Promise<void> {
+  if (!global.__kaloristSchemaReady) {
+    global.__kaloristSchemaReady = createSchema();
   }
-  return global.__kaloristDb;
+  return global.__kaloristSchemaReady;
 }

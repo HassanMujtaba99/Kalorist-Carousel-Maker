@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { ensureSchema, sql } from "./db";
 import { encryptField, decryptField } from "./crypto";
 import type { AppSettings } from "@/lib/types";
 
@@ -10,14 +10,14 @@ interface UserSettingsRow {
   anthropic_model: string | null;
 }
 
-export function getUserSettings(userId: string): AppSettings | null {
-  const row = getDb()
-    .prepare(
-      `SELECT gemini_api_key_enc, gemini_model, usda_api_key_enc, anthropic_api_key_enc, anthropic_model
-       FROM user_settings WHERE user_id = ?`
-    )
-    .get(userId) as UserSettingsRow | undefined;
+export async function getUserSettings(userId: string): Promise<AppSettings | null> {
+  await ensureSchema();
+  const rows = (await sql()`
+    SELECT gemini_api_key_enc, gemini_model, usda_api_key_enc, anthropic_api_key_enc, anthropic_model
+    FROM user_settings WHERE user_id = ${userId}
+  `) as UserSettingsRow[];
 
+  const row = rows[0];
   if (!row) return null;
 
   return {
@@ -29,27 +29,29 @@ export function getUserSettings(userId: string): AppSettings | null {
   };
 }
 
-export function saveUserSettings(userId: string, settings: AppSettings): void {
-  getDb()
-    .prepare(
-      `INSERT INTO user_settings
-         (user_id, gemini_api_key_enc, gemini_model, usda_api_key_enc, anthropic_api_key_enc, anthropic_model, updated_at)
-       VALUES (@userId, @geminiApiKeyEnc, @geminiModel, @usdaApiKeyEnc, @anthropicApiKeyEnc, @anthropicModel, @updatedAt)
-       ON CONFLICT(user_id) DO UPDATE SET
-         gemini_api_key_enc = excluded.gemini_api_key_enc,
-         gemini_model = excluded.gemini_model,
-         usda_api_key_enc = excluded.usda_api_key_enc,
-         anthropic_api_key_enc = excluded.anthropic_api_key_enc,
-         anthropic_model = excluded.anthropic_model,
-         updated_at = excluded.updated_at`
+export async function saveUserSettings(
+  userId: string,
+  settings: AppSettings
+): Promise<void> {
+  await ensureSchema();
+  await sql()`
+    INSERT INTO user_settings
+      (user_id, gemini_api_key_enc, gemini_model, usda_api_key_enc, anthropic_api_key_enc, anthropic_model, updated_at)
+    VALUES (
+      ${userId},
+      ${encryptField(settings.geminiApiKey)},
+      ${settings.geminiModel},
+      ${encryptField(settings.usdaApiKey)},
+      ${encryptField(settings.anthropicApiKey)},
+      ${settings.anthropicModel},
+      ${Date.now()}
     )
-    .run({
-      userId,
-      geminiApiKeyEnc: encryptField(settings.geminiApiKey),
-      geminiModel: settings.geminiModel,
-      usdaApiKeyEnc: encryptField(settings.usdaApiKey),
-      anthropicApiKeyEnc: encryptField(settings.anthropicApiKey),
-      anthropicModel: settings.anthropicModel,
-      updatedAt: Date.now(),
-    });
+    ON CONFLICT (user_id) DO UPDATE SET
+      gemini_api_key_enc = excluded.gemini_api_key_enc,
+      gemini_model = excluded.gemini_model,
+      usda_api_key_enc = excluded.usda_api_key_enc,
+      anthropic_api_key_enc = excluded.anthropic_api_key_enc,
+      anthropic_model = excluded.anthropic_model,
+      updated_at = excluded.updated_at
+  `;
 }
