@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import JSZip from "jszip";
-import { useUser } from "@stackframe/stack";
+import { authClient } from "@/lib/auth/client";
 import { useSettings } from "@/hooks/useSettings";
 import { useGuestMode } from "@/hooks/useGuestMode";
 import { emptyCarousel, createSlide, CONTENT_SLIDE_KINDS } from "@/lib/carousel";
@@ -25,7 +25,8 @@ import { SlideCard } from "./SlideCard";
 import { AddContentSlideButton } from "./AddContentSlideButton";
 
 export function CarouselBuilder() {
-  const user = useUser();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const user = session?.user ?? null;
   const { guest, loaded: guestLoaded, continueAsGuest } = useGuestMode();
   const { settings, update, loaded } = useSettings(user?.id ?? null);
   const [carousel, setCarousel] = useState(emptyCarousel());
@@ -178,7 +179,7 @@ export function CarouselBuilder() {
 
   const generatedCount = allSlides.filter((s) => s.status === "done").length;
 
-  if (!guestLoaded) return null;
+  if (sessionPending || !guestLoaded) return null;
   if (!user && !guest) {
     return <WelcomeGate onContinueAsGuest={continueAsGuest} />;
   }
@@ -198,7 +199,7 @@ export function CarouselBuilder() {
         </p>
       </header>
 
-      <AuthPanel user={user} onSignOut={() => user?.signOut()} />
+      <AuthPanel user={user} onSignOut={() => authClient.signOut()} />
 
       <SettingsPanel settings={settings} onChange={update} />
 

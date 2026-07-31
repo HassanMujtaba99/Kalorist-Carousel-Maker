@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SignIn, SignUp } from "@stackframe/stack";
+import { AuthView } from "@neondatabase/auth-ui";
 import { AuthWidgetBoundary } from "./AuthWidgetBoundary";
 
 interface Props {
@@ -42,7 +42,9 @@ export function WelcomeGate({ onContinueAsGuest }: Props) {
           </button>
         </div>
 
-        <AuthWidgetBoundary>{mode === "signup" ? <SignUp /> : <SignIn />}</AuthWidgetBoundary>
+        <AuthWidgetBoundary>
+          <AuthView view={mode === "signup" ? "SIGN_UP" : "SIGN_IN"} />
+        </AuthWidgetBoundary>
       </div>
 
       <div className="mt-4 flex items-center gap-3">

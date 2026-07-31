@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stackServerApp } from "@/stack";
+import { auth } from "@/lib/auth/server";
 import { deleteCarousel, getCarousel, updateCarousel } from "@/lib/server/carouselsRepo";
 import type { CarouselState } from "@/lib/types";
 
@@ -8,7 +8,8 @@ interface RouteContext {
 }
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
-  const user = await stackServerApp.getUser();
+  const { data } = await auth.getSession();
+  const user = data?.user;
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
@@ -21,7 +22,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 }
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
-  const user = await stackServerApp.getUser();
+  const { data } = await auth.getSession();
+  const user = data?.user;
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
@@ -42,7 +44,8 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
-  const user = await stackServerApp.getUser();
+  const { data } = await auth.getSession();
+  const user = data?.user;
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }

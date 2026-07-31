@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { SignIn, SignUp } from "@stackframe/stack";
+import { AuthView } from "@neondatabase/auth-ui";
 import { AuthWidgetBoundary } from "./AuthWidgetBoundary";
 
 interface AuthPanelUser {
-  primaryEmail: string | null;
+  email: string;
+  name: string;
 }
 
 interface Props {
@@ -22,7 +23,7 @@ export function AuthPanel({ user, onSignOut }: Props) {
       <div className="kal-card flex items-center justify-between !py-3">
         <span className="text-sm">
           Signed in as{" "}
-          <span className="font-bold text-ink">{user.primaryEmail ?? "your account"}</span> —
+          <span className="font-bold text-ink">{user.name || user.email}</span> —
           your API keys and saved carousels sync to this account.
         </span>
         <button type="button" onClick={onSignOut} className="kal-btn-ghost">
@@ -70,7 +71,9 @@ export function AuthPanel({ user, onSignOut }: Props) {
             </button>
           </div>
 
-          <AuthWidgetBoundary>{mode === "login" ? <SignIn /> : <SignUp />}</AuthWidgetBoundary>
+          <AuthWidgetBoundary>
+            <AuthView view={mode === "signup" ? "SIGN_UP" : "SIGN_IN"} />
+          </AuthWidgetBoundary>
         </div>
       )}
     </div>

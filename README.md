@@ -65,26 +65,35 @@ carousels to a Postgres database ([Neon](https://neon.tech) is the intended
 provider — serverless Postgres with a free tier), so they follow you across
 devices/browsers:
 
-- Identity/sign-in is handled by **Neon Auth** (built on
-  [Stack Auth](https://stack-auth.com)) — enable it in the Neon Console for
-  your project (**Project → Auth tab → Enable**), which provisions
-  `NEXT_PUBLIC_STACK_PROJECT_ID`, `NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY`,
-  and `STACK_SECRET_SERVER_KEY` for you automatically — copy them into your
-  environment (see `.env.example`).
-  - **Google** sign-in works immediately — Stack Auth provides shared dev
-    OAuth keys, no setup required to test.
+- Identity/sign-in is handled by **Neon Auth**, using Neon's
+  [Managed Better Auth](https://neon.com/docs/auth/overview) — enable it in
+  the Neon Console for your project (**Project → Auth tab → Enable**), then
+  copy the **Auth URL** from the Configuration tab into `NEON_AUTH_BASE_URL`.
+  Generate `NEON_AUTH_COOKIE_SECRET` yourself with `openssl rand -base64 32`
+  (see `.env.example`).
+  - Note: Neon's older Stack Auth-based "legacy Neon Auth" product is closed
+    to new projects — Managed Better Auth is the current replacement, and
+    what this app is built against. If your project still shows the old
+    Stack Auth-style keys instead of an Auth URL/JWKS URL, look for a
+    "Configuration" section or an option to switch to the native/managed
+    Auth product.
+  - **Google** sign-in needs to be turned on once under **Auth methods** in
+    the Neon Auth dashboard (shared dev OAuth keys, no extra setup).
   - **Apple** sign-in requires your own Apple Developer Program account
-    (Services ID, Team ID, Key ID, private key), configured in the Neon
-    Auth / Stack Auth dashboard under **Auth methods → OAuth providers →
-    Apple**. This is an Apple platform requirement — no auth provider can
-    bypass it. Once enabled there, the Apple button appears automatically;
-    no code change needed.
+    (Services ID, Team ID, Key ID, private key), configured in the same
+    dashboard under **Auth methods → Apple**. This is an Apple platform
+    requirement — no auth provider can bypass it. Once enabled there, add
+    `"apple"` to the `social.providers` array in `src/app/providers.tsx` so
+    the button renders.
   - Email/password sign-in is also available out of the box.
-- ⚠️ **Build-time requirement**: unlike the other env vars, the three
-  `STACK_*` variables are validated when the app boots — `next build` (and
-  therefore a Vercel deploy) will **fail outright**, not just misbehave at
-  runtime, if they're missing or malformed. Add them before deploying this
-  version.
+- ⚠️ **Build-time requirement**: like the previous auth provider, this one
+  is also validated when the app boots — `next build` (and therefore a
+  Vercel deploy) will **fail outright** if `NEON_AUTH_COOKIE_SECRET` is
+  missing or under 32 characters. Add it (and `NEON_AUTH_BASE_URL`) before
+  deploying.
+- ⚠️ This app currently depends on **beta** packages
+  (`@neondatabase/auth`, `@neondatabase/auth-ui`) — Neon's Managed Better
+  Auth is a new product, so expect some rough edges and API churn.
 - API keys (Gemini/USDA/Anthropic) are still encrypted at rest with
   AES-256-GCM using the `ENCRYPTION_KEY` environment variable (generate one
   with `openssl rand -base64 32`) — Neon Auth only replaces the identity
@@ -115,14 +124,14 @@ npx neonctl@latest init   # creates a free Neon project, prints a connection str
 
 Copy that connection string into `DATABASE_URL` in `.env.local` (copy
 `.env.example` to start), along with an `ENCRYPTION_KEY`
-(`openssl rand -base64 32`) and the three `NEXT_PUBLIC_STACK_*` /
-`STACK_SECRET_SERVER_KEY` values from Neon Auth (Project → Auth tab →
-Enable, in the Neon Console). The `user_settings`/`carousels` schema is
-created automatically on first request — no separate migration step.
-Without `DATABASE_URL`/`ENCRYPTION_KEY` set, the app still works fully in
-signed-out (BYOK) mode; accounts just won't be available. The `STACK_*`
-vars, however, are required for the app to even build once Neon Auth is
-wired in — see the build-time warning above.
+(`openssl rand -base64 32`) and `NEON_AUTH_BASE_URL` /
+`NEON_AUTH_COOKIE_SECRET` from Neon Auth (Project → Auth tab → Enable, in
+the Neon Console). The `user_settings`/`carousels` schema is created
+automatically on first request — no separate migration step. Without
+`DATABASE_URL`/`ENCRYPTION_KEY` set, the app still works fully in
+signed-out (BYOK) mode; accounts just won't be available. The
+`NEON_AUTH_*` vars, however, are required for the app to even build once
+Neon Auth is wired in — see the build-time warning above.
 
 ## Project structure
 
@@ -133,10 +142,14 @@ wired in — see the build-time warning above.
   generation and model listing.
 - `src/app/api/settings`, `src/app/api/carousels/*` — encrypted settings and
   saved carousels, gated on the signed-in Neon Auth user.
-- `src/app/handler/[...stack]` — Neon Auth's hosted pages (OAuth callback,
-  account settings, password reset). Most users never see this directly —
-  the in-app Account panel embeds sign-in/sign-up inline.
-- `src/stack.ts` — Neon Auth (Stack Auth) server app config.
+- `src/app/api/auth/[...path]` — proxies auth requests to Neon's Managed
+  Better Auth server.
+- `src/app/auth/[path]` — hosted auth pages (OAuth callback, password
+  reset, etc). Most users never see this directly — the in-app Account
+  panel and welcome gate embed sign-in/sign-up inline.
+- `src/lib/auth/server.ts`, `src/lib/auth/client.ts` — Neon Auth (Managed
+  Better Auth) server and client instances.
+- `src/app/providers.tsx` — wraps the app in `NeonAuthUIProvider`.
 - `src/lib/nutrition.ts` — normalizes raw USDA results into calories/protein.
 - `src/lib/promptBuilder.ts` — turns slide data + USDA figures into an image
   generation prompt per slide template.
@@ -156,9 +169,10 @@ npm run build
 npm run start
 ```
 
-**The three `STACK_*` variables are required for the app to build at all**
+**`NEON_AUTH_COOKIE_SECRET` is required for the app to build at all**
 (Neon Auth wraps the whole app in the root layout, so it's no longer
-optional infrastructure the way `DATABASE_URL`/`ENCRYPTION_KEY` are). Set
-all five variables — `DATABASE_URL`, `ENCRYPTION_KEY`,
-`NEXT_PUBLIC_STACK_PROJECT_ID`, `NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY`,
-`STACK_SECRET_SERVER_KEY` — before deploying.
+optional infrastructure the way `DATABASE_URL`/`ENCRYPTION_KEY` are, and
+`createNeonAuth()` throws synchronously if the cookie secret is missing or
+under 32 characters). Set all four variables — `DATABASE_URL`,
+`ENCRYPTION_KEY`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET` — before
+deploying.
