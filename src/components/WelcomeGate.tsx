@@ -25,7 +25,7 @@ export function WelcomeGate({ onContinueAsGuest }: Props) {
         </p>
       </div>
 
-      <div className="kal-card space-y-4">
+      <div className="kal-card flex flex-col gap-4">
         <div className="flex gap-2">
           <button
             type="button"

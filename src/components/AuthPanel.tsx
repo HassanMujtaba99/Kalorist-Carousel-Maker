@@ -48,7 +48,7 @@ export function AuthPanel({ user, onSignOut }: Props) {
       </button>
 
       {open && (
-        <div className="space-y-4 border-t-2 border-ink px-4 py-4">
+        <div className="flex flex-col gap-4 border-t-2 border-ink px-4 py-4">
           <p className="text-sm text-ink/60">
             Optional. Sign in with Google (or email) to save your API keys and
             carousels to this server (encrypted at rest) instead of just this
