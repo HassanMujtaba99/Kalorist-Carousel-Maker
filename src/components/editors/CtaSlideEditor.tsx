@@ -1,23 +1,63 @@
 "use client";
 
+import { useState } from "react";
 import type { CtaSlideData } from "@/lib/types";
+import { draftCopy } from "@/lib/claudeClient";
+import { buildCtaPrompt } from "@/lib/copyAssist";
 
 interface Props {
   data: CtaSlideData;
+  anthropicApiKey: string;
+  anthropicModel: string;
   onChange: (data: CtaSlideData) => void;
 }
 
-export function CtaSlideEditor({ data, onChange }: Props) {
+export function CtaSlideEditor({ data, anthropicApiKey, anthropicModel, onChange }: Props) {
+  const [drafting, setDrafting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const draftMessage = async () => {
+    if (!anthropicApiKey.trim()) {
+      setError("Add your Anthropic API key in Settings first.");
+      return;
+    }
+    setDrafting(true);
+    setError(null);
+    try {
+      const message = await draftCopy(
+        buildCtaPrompt(data.message),
+        anthropicApiKey,
+        anthropicModel
+      );
+      onChange({ ...data, message });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Draft failed");
+    } finally {
+      setDrafting(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <label className="block text-sm">
-        <span className="kal-label">CTA message</span>
+        <div className="mb-1 flex items-center justify-between">
+          <span className="kal-label !mb-0">CTA message</span>
+          <button
+            type="button"
+            onClick={draftMessage}
+            disabled={drafting}
+            className="text-xs font-bold text-purple hover:underline disabled:opacity-50"
+          >
+            {drafting ? "Drafting…" : "Draft with Claude"}
+          </button>
+        </div>
         <input
           type="text"
           value={data.message}
           onChange={(e) => onChange({ ...data, message: e.target.value })}
           className="kal-input"
         />
+        {error && <p className="mt-1 text-xs font-semibold text-purple">{error}</p>}
       </label>
       <label className="block text-sm">
         <span className="kal-label">Background scene</span>

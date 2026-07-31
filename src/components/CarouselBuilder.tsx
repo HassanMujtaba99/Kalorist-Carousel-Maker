@@ -145,6 +145,8 @@ export function CarouselBuilder() {
           slide={carousel.cover}
           displayNumber={1}
           usdaApiKey={settings.usdaApiKey}
+          anthropicApiKey={settings.anthropicApiKey}
+          anthropicModel={settings.anthropicModel}
           onChangeData={(data: SlideData) => updateSlide(carousel.cover.id, { data })}
           onGenerate={() => generateSlide(carousel.cover)}
           locked
@@ -164,6 +166,8 @@ export function CarouselBuilder() {
             slide={slide}
             displayNumber={i + 2}
             usdaApiKey={settings.usdaApiKey}
+            anthropicApiKey={settings.anthropicApiKey}
+            anthropicModel={settings.anthropicModel}
             onChangeData={(data: SlideData) => updateSlide(slide.id, { data })}
             onGenerate={() => generateSlide(slide)}
             onRemove={() => removeContentSlide(slide.id)}
@@ -183,6 +187,8 @@ export function CarouselBuilder() {
           slide={carousel.cta}
           displayNumber={allSlides.length}
           usdaApiKey={settings.usdaApiKey}
+          anthropicApiKey={settings.anthropicApiKey}
+          anthropicModel={settings.anthropicModel}
           onChangeData={(data: SlideData) => updateSlide(carousel.cta.id, { data })}
           onGenerate={() => generateSlide(carousel.cta)}
           locked

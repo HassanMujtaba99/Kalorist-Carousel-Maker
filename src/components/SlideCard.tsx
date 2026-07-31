@@ -8,6 +8,8 @@ interface Props {
   slide: Slide;
   displayNumber: number;
   usdaApiKey: string;
+  anthropicApiKey: string;
+  anthropicModel: string;
   onChangeData: (data: SlideData) => void;
   onGenerate: () => void;
   /** Cover and CTA slides are fixed in place and cannot be removed or reordered. */
@@ -23,6 +25,8 @@ export function SlideCard({
   slide,
   displayNumber,
   usdaApiKey,
+  anthropicApiKey,
+  anthropicModel,
   onChangeData,
   onGenerate,
   locked = false,
@@ -77,7 +81,13 @@ export function SlideCard({
           )}
         </div>
 
-        <SlideEditor slide={slide} usdaApiKey={usdaApiKey} onChange={onChangeData} />
+        <SlideEditor
+          slide={slide}
+          usdaApiKey={usdaApiKey}
+          anthropicApiKey={anthropicApiKey}
+          anthropicModel={anthropicModel}
+          onChange={onChangeData}
+        />
 
         <div className="flex items-center gap-2">
           <button

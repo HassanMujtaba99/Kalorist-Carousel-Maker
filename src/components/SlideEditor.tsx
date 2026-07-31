@@ -9,18 +9,35 @@ import { CtaSlideEditor } from "./editors/CtaSlideEditor";
 interface Props {
   slide: Slide;
   usdaApiKey: string;
+  anthropicApiKey: string;
+  anthropicModel: string;
   onChange: (data: SlideData) => void;
 }
 
-export function SlideEditor({ slide, usdaApiKey, onChange }: Props) {
+export function SlideEditor({
+  slide,
+  usdaApiKey,
+  anthropicApiKey,
+  anthropicModel,
+  onChange,
+}: Props) {
   switch (slide.data.kind) {
     case "title":
-      return <TitleSlideEditor data={slide.data} onChange={onChange} />;
+      return (
+        <TitleSlideEditor
+          data={slide.data}
+          anthropicApiKey={anthropicApiKey}
+          anthropicModel={anthropicModel}
+          onChange={onChange}
+        />
+      );
     case "this-or-that":
       return (
         <ThisOrThatSlideEditor
           data={slide.data}
           usdaApiKey={usdaApiKey}
+          anthropicApiKey={anthropicApiKey}
+          anthropicModel={anthropicModel}
           onChange={onChange}
         />
       );
@@ -33,6 +50,13 @@ export function SlideEditor({ slide, usdaApiKey, onChange }: Props) {
         />
       );
     case "cta":
-      return <CtaSlideEditor data={slide.data} onChange={onChange} />;
+      return (
+        <CtaSlideEditor
+          data={slide.data}
+          anthropicApiKey={anthropicApiKey}
+          anthropicModel={anthropicModel}
+          onChange={onChange}
+        />
+      );
   }
 }

@@ -87,4 +87,6 @@ export interface AppSettings {
   geminiApiKey: string;
   geminiModel: string;
   usdaApiKey: string;
+  anthropicApiKey: string;
+  anthropicModel: string;
 }

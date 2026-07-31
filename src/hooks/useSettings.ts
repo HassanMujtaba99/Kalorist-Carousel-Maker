@@ -9,6 +9,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   geminiApiKey: "",
   geminiModel: "gemini-2.5-flash-image",
   usdaApiKey: "",
+  anthropicApiKey: "",
+  anthropicModel: "claude-sonnet-5",
 };
 
 export function useSettings() {
