@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { NeonAuthUIProvider } from "@neondatabase/auth-ui";
-import "@neondatabase/auth-ui/css";
+import "./auth-ui.css";
 import { authClient } from "@/lib/auth/client";
 
 export function Providers({ children }: { children: React.ReactNode }) {

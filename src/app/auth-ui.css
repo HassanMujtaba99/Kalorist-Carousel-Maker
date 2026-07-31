@@ -1,0 +1,12 @@
+/* @neondatabase/auth-ui/css is a second, independently-compiled Tailwind
+   build bundled into this app (buttons, inputs, its own copy of Tailwind's
+   preflight reset, etc). Importing it as a plain global stylesheet put its
+   rules in direct, unpredictable competition with our own for every
+   shared property (button background/border, margin, padding) -- cascade
+   layers with the same name don't reliably merge in the order either side
+   expects across two separate builds, so whichever reset happened to win
+   varied property by property. Importing it into its own explicitly
+   lowest-priority named layer fixes the whole class of bug at once: any
+   unlayered or default-layer rule of ours now always outranks anything in
+   here, regardless of specificity, order, or load timing. */
+@import "@neondatabase/auth-ui/css" layer(neon-auth-ui);
