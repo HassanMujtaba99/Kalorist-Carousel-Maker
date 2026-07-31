@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AuthView } from "@neondatabase/auth-ui";
 import { AuthWidgetBoundary } from "./AuthWidgetBoundary";
+import { authViewClassNames } from "@/lib/authViewClassNames";
 
 interface AuthPanelUser {
   email: string;
@@ -72,7 +73,10 @@ export function AuthPanel({ user, onSignOut }: Props) {
           </div>
 
           <AuthWidgetBoundary>
-            <AuthView view={mode === "signup" ? "SIGN_UP" : "SIGN_IN"} />
+            <AuthView
+              view={mode === "signup" ? "SIGN_UP" : "SIGN_IN"}
+              classNames={authViewClassNames}
+            />
           </AuthWidgetBoundary>
         </div>
       )}

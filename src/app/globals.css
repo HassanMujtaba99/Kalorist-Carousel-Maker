@@ -9,6 +9,35 @@
   --color-purple: #7c5cfc;
   --color-purple-dark: #6142e8;
   --color-ink: #14141a;
+
+  /* Theme tokens consumed by @neondatabase/auth-ui's shadcn-style palette
+     (each of its --neon-* variables reads `var(--x, fallback)`, so setting
+     these here re-skins the sign-in/sign-up widgets to match the Kalorist
+     brand instead of their generic black/white default). */
+  --card: #ffffff;
+  --card-foreground: #14141a;
+  --popover: #ffffff;
+  --popover-foreground: #14141a;
+  --primary: #7c5cfc;
+  --primary-foreground: #ffffff;
+  --secondary: #c9f34c;
+  --secondary-foreground: #14141a;
+  --muted: #f0ece0;
+  --muted-foreground: #6b6b6b;
+  --accent: #c9f34c;
+  --accent-foreground: #14141a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #14141a;
+  --input: #ffffff;
+  --ring: #7c5cfc;
+}
+
+/* --neon-radius is a hardcoded literal in @neondatabase/auth-ui's
+   stylesheet (not `var(--radius, ...)`), so it must be forced with
+   !important to win regardless of CSS import order. */
+:root {
+  --neon-radius: 1rem !important;
 }
 
 @theme inline {
