@@ -14,3 +14,22 @@ export async function generateSlideImage(
   }
   return json.imageDataUrl as string;
 }
+
+export interface GeminiImageModel {
+  id: string;
+  displayName: string;
+  description?: string;
+}
+
+export async function fetchImageModels(apiKey: string): Promise<GeminiImageModel[]> {
+  const res = await fetch("/api/gemini/models", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey }),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json.error || `Could not fetch models (${res.status})`);
+  }
+  return (json.models ?? []) as GeminiImageModel[];
+}

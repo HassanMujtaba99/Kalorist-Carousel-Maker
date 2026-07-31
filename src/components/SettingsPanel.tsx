@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AppSettings } from "@/lib/types";
+import { fetchImageModels, type GeminiImageModel } from "@/lib/geminiClient";
 
 interface Props {
   settings: AppSettings;
@@ -10,7 +11,30 @@ interface Props {
 
 export function SettingsPanel({ settings, onChange }: Props) {
   const [open, setOpen] = useState(false);
+  const [models, setModels] = useState<GeminiImageModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   const hasGeminiKey = settings.geminiApiKey.trim().length > 0;
+
+  const loadModels = async () => {
+    if (!hasGeminiKey) {
+      setModelsError("Add your Gemini API key above first.");
+      return;
+    }
+    setModelsLoading(true);
+    setModelsError(null);
+    try {
+      const fetched = await fetchImageModels(settings.geminiApiKey);
+      setModels(fetched);
+      if (fetched.length === 0) {
+        setModelsError("No image-capable models found for this key.");
+      }
+    } catch (e) {
+      setModelsError(e instanceof Error ? e.message : "Could not fetch models");
+    } finally {
+      setModelsLoading(false);
+    }
+  };
 
   return (
     <div className="kal-card !p-0 overflow-hidden">
@@ -57,8 +81,18 @@ export function SettingsPanel({ settings, onChange }: Props) {
             </span>
           </label>
 
-          <label className="block text-sm">
-            <span className="kal-label">Gemini image model</span>
+          <div className="block text-sm">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="kal-label !mb-0">Gemini image model</span>
+              <button
+                type="button"
+                onClick={loadModels}
+                disabled={modelsLoading}
+                className="text-xs font-bold text-purple hover:underline disabled:opacity-50"
+              >
+                {modelsLoading ? "Fetching…" : "Fetch available models"}
+              </button>
+            </div>
             <input
               type="text"
               value={settings.geminiModel}
@@ -66,7 +100,33 @@ export function SettingsPanel({ settings, onChange }: Props) {
               placeholder="gemini-2.5-flash-image"
               className="kal-input"
             />
-          </label>
+            {modelsError && (
+              <p className="mt-1.5 text-xs font-semibold text-purple">{modelsError}</p>
+            )}
+            {models.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {models.map((model) => {
+                  const selected = model.id === settings.geminiModel;
+                  return (
+                    <button
+                      key={model.id}
+                      type="button"
+                      title={model.description}
+                      onClick={() => onChange({ geminiModel: model.id })}
+                      className={
+                        selected
+                          ? "kal-pill"
+                          : "rounded-full border-2 border-ink/15 px-3 py-1 text-xs font-bold text-ink/70 hover:border-ink hover:bg-lime/30"
+                      }
+                    >
+                      {selected && "✓ "}
+                      {model.displayName}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <label className="block text-sm">
             <span className="kal-label">USDA FoodData Central API key</span>
