@@ -13,6 +13,14 @@ Claude (via a real Anthropic API key) can optionally draft the on-slide copy.
 
 ## How it works
 
+0. On first visit you're asked to **sign up**, **log in**, or **continue as
+   guest**. Guest mode is fully functional and permanent (remembered in this
+   browser) — it just skips server-side sync, so keys/carousels stay in
+   `localStorage` only. You can sign up later without losing anything already
+   in the browser. If Neon Auth/Stack Auth is unreachable (misconfigured
+   keys, an outage), the sign-in/sign-up form degrades to a "temporarily
+   unavailable" message instead of taking down the page — "Continue as
+   guest" always stays clickable.
 1. Every carousel has a fixed **Cover** slide, a fixed **Closing/CTA** slide,
    and a variable middle of **content slides** (today: "This or That"; more
    content types will be added later) that you can add, remove, and reorder

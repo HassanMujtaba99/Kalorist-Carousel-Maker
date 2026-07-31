@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import JSZip from "jszip";
 import { useUser } from "@stackframe/stack";
 import { useSettings } from "@/hooks/useSettings";
+import { useGuestMode } from "@/hooks/useGuestMode";
 import { emptyCarousel, createSlide, CONTENT_SLIDE_KINDS } from "@/lib/carousel";
 import { buildSlidePrompt } from "@/lib/promptBuilder";
 import { generateSlideImage } from "@/lib/geminiClient";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/carouselsClient";
 import type { Slide, SlideData, SlideKind } from "@/lib/types";
 import { AuthPanel } from "./AuthPanel";
+import { WelcomeGate } from "./WelcomeGate";
 import { SettingsPanel } from "./SettingsPanel";
 import { MyCarouselsPanel } from "./MyCarouselsPanel";
 import { SlideCard } from "./SlideCard";
@@ -24,6 +26,7 @@ import { AddContentSlideButton } from "./AddContentSlideButton";
 
 export function CarouselBuilder() {
   const user = useUser();
+  const { guest, loaded: guestLoaded, continueAsGuest } = useGuestMode();
   const { settings, update, loaded } = useSettings(user?.id ?? null);
   const [carousel, setCarousel] = useState(emptyCarousel());
   const [busy, setBusy] = useState(false);
@@ -175,6 +178,10 @@ export function CarouselBuilder() {
 
   const generatedCount = allSlides.filter((s) => s.status === "done").length;
 
+  if (!guestLoaded) return null;
+  if (!user && !guest) {
+    return <WelcomeGate onContinueAsGuest={continueAsGuest} />;
+  }
   if (!loaded) return null;
 
   return (

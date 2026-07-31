@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SignIn, SignUp } from "@stackframe/stack";
+import { AuthWidgetBoundary } from "./AuthWidgetBoundary";
 
 interface AuthPanelUser {
   primaryEmail: string | null;
@@ -69,7 +70,7 @@ export function AuthPanel({ user, onSignOut }: Props) {
             </button>
           </div>
 
-          {mode === "login" ? <SignIn /> : <SignUp />}
+          <AuthWidgetBoundary>{mode === "login" ? <SignIn /> : <SignUp />}</AuthWidgetBoundary>
         </div>
       )}
     </div>
