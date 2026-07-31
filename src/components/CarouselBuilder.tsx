@@ -96,8 +96,10 @@ export function CarouselBuilder() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Kalorist Carousel Maker</h1>
-        <p className="text-sm text-black/60 dark:text-white/60">
+        <h1 className="text-3xl font-extrabold tracking-tight text-ink">
+          Carousel Maker
+        </h1>
+        <p className="max-w-2xl text-sm text-ink/60">
           Build nutrition-education carousel posts. Calorie and protein figures
           are pulled live from the USDA FoodData Central database and baked
           into the AI image-generation prompt so the numbers on your slides
@@ -107,32 +109,32 @@ export function CarouselBuilder() {
 
       <SettingsPanel settings={settings} onChange={update} />
 
-      <section className="grid gap-3 rounded-xl border border-black/10 bg-white p-4 dark:bg-neutral-900 dark:border-white/10 sm:grid-cols-2">
+      <section className="kal-card grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="mb-1 block font-medium">Carousel title</span>
+          <span className="kal-label">Carousel title</span>
           <input
             type="text"
             value={carousel.title}
             onChange={(e) => setCarousel((c) => ({ ...c, title: e.target.value }))}
-            className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black/40 dark:bg-neutral-800 dark:border-white/15"
+            className="kal-input"
           />
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block font-medium">Brand name (badge)</span>
+          <span className="kal-label">Brand name (badge)</span>
           <input
             type="text"
             value={carousel.brand.name}
             onChange={(e) =>
               setCarousel((c) => ({ ...c, brand: { ...c.brand, name: e.target.value } }))
             }
-            className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black/40 dark:bg-neutral-800 dark:border-white/15"
+            className="kal-input"
           />
         </label>
       </section>
 
       <section className="space-y-3">
         {carousel.slides.length === 0 && (
-          <p className="rounded-xl border border-dashed border-black/15 p-6 text-center text-sm text-black/50 dark:border-white/15 dark:text-white/50">
+          <p className="rounded-2xl border-2 border-dashed border-ink/20 bg-white/60 p-6 text-center text-sm text-ink/50">
             Add your first slide below to get started.
           </p>
         )}
@@ -151,16 +153,16 @@ export function CarouselBuilder() {
         ))}
       </section>
 
-      <section className="flex flex-wrap items-center gap-2 rounded-xl border border-black/10 bg-white p-4 dark:bg-neutral-900 dark:border-white/10">
-        <span className="mr-1 text-sm font-medium text-black/60 dark:text-white/60">
-          Add slide:
+      <section className="kal-card flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs font-bold tracking-wide text-ink/50 uppercase">
+          Add slide
         </span>
         {SLIDE_KINDS.map((kind) => (
           <button
             key={kind}
             type="button"
             onClick={() => addSlide(kind)}
-            className="rounded-full border border-black/15 px-3 py-1.5 text-sm hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+            className="kal-btn-ghost"
           >
             + {slideKindLabel(kind)}
           </button>
@@ -168,12 +170,12 @@ export function CarouselBuilder() {
       </section>
 
       {carousel.slides.length > 0 && (
-        <section className="flex flex-wrap items-center gap-3 rounded-xl border border-black/10 bg-white p-4 dark:bg-neutral-900 dark:border-white/10">
+        <section className="kal-card flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={generateAll}
             disabled={busy}
-            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+            className="kal-btn-primary"
           >
             {busy ? "Generating all…" : "Generate all slides"}
           </button>
@@ -181,12 +183,12 @@ export function CarouselBuilder() {
             type="button"
             onClick={exportZip}
             disabled={generatedCount === 0}
-            className="rounded-lg border border-black/15 px-4 py-2 text-sm font-medium disabled:opacity-40 dark:border-white/15"
+            className="kal-btn-secondary"
           >
             Download all as ZIP
           </button>
-          <span className="text-xs text-black/50 dark:text-white/50">
-            {generatedCount}/{carousel.slides.length} slides generated
+          <span className="kal-pill">
+            {generatedCount}/{carousel.slides.length} generated
           </span>
         </section>
       )}

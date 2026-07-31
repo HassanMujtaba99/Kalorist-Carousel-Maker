@@ -27,21 +27,23 @@ export function SlideCard({
   onMove,
 }: Props) {
   return (
-    <div className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 dark:bg-neutral-900 dark:border-white/10 md:grid-cols-[minmax(0,1fr)_220px]">
+    <div className="kal-card grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold dark:bg-white/10">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-xs font-bold text-white">
               {index + 1}
             </span>
-            <span className="text-sm font-medium">{slideKindLabel(slide.data.kind)}</span>
+            <span className="text-sm font-bold text-ink">
+              {slideKindLabel(slide.data.kind)}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <button
               type="button"
               disabled={index === 0}
               onClick={() => onMove(-1)}
-              className="rounded px-2 py-1 text-xs disabled:opacity-30 hover:bg-black/5 dark:hover:bg-white/10"
+              className="rounded-full px-2 py-1 text-xs font-bold disabled:opacity-30 hover:bg-lime/40"
               aria-label="Move slide earlier"
             >
               ↑
@@ -50,7 +52,7 @@ export function SlideCard({
               type="button"
               disabled={index === total - 1}
               onClick={() => onMove(1)}
-              className="rounded px-2 py-1 text-xs disabled:opacity-30 hover:bg-black/5 dark:hover:bg-white/10"
+              className="rounded-full px-2 py-1 text-xs font-bold disabled:opacity-30 hover:bg-lime/40"
               aria-label="Move slide later"
             >
               ↓
@@ -58,7 +60,7 @@ export function SlideCard({
             <button
               type="button"
               onClick={onRemove}
-              className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+              className="rounded-full px-2 py-1 text-xs font-bold text-purple hover:bg-purple/10"
             >
               Remove
             </button>
@@ -72,7 +74,7 @@ export function SlideCard({
             type="button"
             onClick={onGenerate}
             disabled={slide.status === "generating"}
-            className="rounded-lg bg-black px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+            className="kal-btn-primary"
           >
             {slide.status === "generating"
               ? "Generating…"
@@ -81,13 +83,13 @@ export function SlideCard({
                 : "Generate slide"}
           </button>
           {slide.status === "error" && (
-            <span className="text-xs text-red-600">{slide.error}</span>
+            <span className="text-xs font-semibold text-purple">{slide.error}</span>
           )}
         </div>
       </div>
 
       <div className="flex flex-col items-center gap-2">
-        <div className="aspect-[4/5] w-full overflow-hidden rounded-lg border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5">
+        <div className="aspect-[4/5] w-full overflow-hidden rounded-xl border-2 border-ink bg-ink/5">
           {slide.imageDataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -96,7 +98,7 @@ export function SlideCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center p-3 text-center text-xs text-black/40 dark:text-white/40">
+            <div className="flex h-full w-full items-center justify-center p-3 text-center text-xs text-ink/40">
               {slide.status === "generating" ? "Generating…" : "No preview yet"}
             </div>
           )}
@@ -105,7 +107,7 @@ export function SlideCard({
           <a
             href={slide.imageDataUrl}
             download={`slide-${index + 1}.png`}
-            className="text-xs font-medium underline underline-offset-2"
+            className="text-xs font-bold text-purple underline underline-offset-2"
           >
             Download PNG
           </a>

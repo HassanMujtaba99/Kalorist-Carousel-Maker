@@ -58,12 +58,12 @@ export function FoodPicker({ usdaApiKey, onAdd }: Props) {
           }
         }}
         placeholder="Search USDA FoodData Central (e.g. McDonald's Cheeseburger)"
-        className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black/40 dark:bg-neutral-800 dark:border-white/15"
+        className="kal-input"
       />
-      {loading && <p className="text-xs text-black/50 dark:text-white/50">Searching…</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {loading && <p className="text-xs font-semibold text-ink/50">Searching…</p>}
+      {error && <p className="text-xs font-semibold text-purple">{error}</p>}
       {results.length > 0 && (
-        <ul className="max-h-56 divide-y divide-black/5 overflow-y-auto rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/10">
+        <ul className="max-h-56 divide-y-2 divide-ink/10 overflow-y-auto rounded-xl border-2 border-ink/15">
           {results.map((food) => (
             <li key={food.id}>
               <button
@@ -73,19 +73,16 @@ export function FoodPicker({ usdaApiKey, onAdd }: Props) {
                   setQuery("");
                   setResults([]);
                 }}
-                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-lime/30"
               >
                 <span className="truncate">
                   {food.brandName ? `${food.brandName} — ` : ""}
                   {food.description}
                   {food.servingDescription ? (
-                    <span className="text-black/40 dark:text-white/40">
-                      {" "}
-                      ({food.servingDescription})
-                    </span>
+                    <span className="text-ink/40"> ({food.servingDescription})</span>
                   ) : null}
                 </span>
-                <span className="shrink-0 rounded-full bg-black px-2 py-0.5 text-xs font-semibold text-white dark:bg-white dark:text-black">
+                <span className="shrink-0 rounded-full border-2 border-ink bg-lime px-2 py-0.5 text-xs font-bold text-ink">
                   {food.calories || "?"} cal
                 </span>
               </button>

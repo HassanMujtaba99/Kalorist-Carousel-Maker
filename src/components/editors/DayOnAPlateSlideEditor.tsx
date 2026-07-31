@@ -25,12 +25,12 @@ export function DayOnAPlateSlideEditor({ data, usdaApiKey, onChange }: Props) {
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         {data.sections.map((section) => (
-          <div key={section.id} className="space-y-2 rounded-lg border border-black/10 p-3 dark:border-white/10">
+          <div key={section.id} className="space-y-2 rounded-xl border-2 border-ink/15 p-3">
             <input
               type="text"
               value={section.label}
               onChange={(e) => updateSection(section.id, { label: e.target.value })}
-              className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm font-medium outline-none focus:border-black/40 dark:bg-neutral-800 dark:border-white/15"
+              className="kal-input font-bold"
             />
             <div className="flex flex-wrap gap-1.5">
               {section.items.map((item) => (
@@ -54,7 +54,7 @@ export function DayOnAPlateSlideEditor({ data, usdaApiKey, onChange }: Props) {
           </div>
         ))}
       </div>
-      <p className="text-sm font-medium">
+      <p className="text-sm font-bold text-ink">
         Total: {sumCalories(allItems)} cal · {sumProtein(allItems)}g protein
       </p>
     </div>
