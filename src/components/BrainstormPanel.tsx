@@ -15,6 +15,7 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
   const [open, setOpen] = useState(false);
   const [topic, setTopic] = useState("");
   const [region, setRegion] = useState("");
+  const [city, setCity] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [count, setCount] = useState(3);
   const [busy, setBusy] = useState(false);
@@ -33,7 +34,7 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
     setWarning(null);
     setNotice(null);
     try {
-      const result = await brainstormCarousel(topic, images, count, region, settings);
+      const result = await brainstormCarousel(topic, images, count, region, city, settings);
       const warnings: string[] = [];
       if (result.usdaErrorCount > 0) {
         warnings.push(
@@ -73,7 +74,7 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
       {open && (
         <div className="space-y-4 border-t-2 border-ink px-4 py-4">
           <p className="text-sm text-ink/60">
-            {`Type a topic, attach reference images from an earlier post, or both. If you attach images, ${providerLabel} treats them as "Part 1" of the series and brainstorms the next installment — same theme, same format (this-or-that or day-on-a-plate, whichever they show) — without repeating what's already in them. Set a target region to get locally relevant brands and dishes instead of default American ones. Every calorie number is still a real, live USDA FoodData Central lookup — if the exact item isn't in USDA's (US-centric) database, a close generic equivalent's real numbers are used instead, clearly marked, never invented by the model.`}
+            {`Type a topic, attach reference images from an earlier post, or both. If you attach images, ${providerLabel} treats them as "Part 1" of the series and brainstorms the next installment — same theme, same format (this-or-that or day-on-a-plate, whichever they show) — without repeating what's already in them. Set a target region (and optionally a city) to get brands and dishes actually local to that audience — not just international chains that happen to have a branch there. Every calorie number is still a real, live USDA FoodData Central lookup — if the exact local item isn't in USDA's (US-centric) database, a close generic equivalent's real numbers are used instead, clearly marked, never invented by the model.`}
           </p>
 
           <label className="block text-sm">
@@ -95,11 +96,28 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
               <input
                 type="text"
                 value={region}
-                onChange={(e) => setRegion(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setRegion(value);
+                  if (!value.trim()) setCity("");
+                }}
                 placeholder="e.g. Pakistan, UK — blank for global"
                 className="kal-input"
               />
             </label>
+
+            {region.trim() && (
+              <label className="block text-sm">
+                <span className="kal-label">City (optional)</span>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Karachi, Lahore"
+                  className="kal-input"
+                />
+              </label>
+            )}
 
             <label className="block text-sm">
               <span className="kal-label">Number of comparisons / plate sections</span>

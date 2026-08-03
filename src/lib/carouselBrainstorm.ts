@@ -103,20 +103,30 @@ function buildCarouselBrainstormPrompt(
   topic: string,
   count: number,
   hasImages: boolean,
-  region: string
+  region: string,
+  city: string
 ): string {
   const hasRegion = region.trim().length > 0;
+  const hasCity = hasRegion && city.trim().length > 0;
+  const place = hasCity ? `${city.trim()}, ${region.trim()}` : region.trim();
   return `You are brainstorming content for a nutrition-education Instagram carousel post
 aimed at a fitness/nutrition coaching audience. Voice: energetic, evidence-based,
 no hashtags, no emoji, no quotation marks in your output.
 
 Topic/niche: "${topic || (hasImages ? "infer it from the attached reference image(s)" : "a general nutrition tip for a broad audience")}"
-Target audience region: ${hasRegion ? region.trim() : "global — no specific region, use widely recognizable examples"}
+Target audience location: ${hasRegion ? place : "global — no specific region, use widely recognizable examples"}
 ${
   hasRegion
-    ? `Prefer real food brands, restaurant chains, and dishes that are actually
-popular and available in ${region.trim()} over generic American examples, so
-this feels locally relevant to that audience.`
+    ? `CRITICAL: use food brands, restaurant chains, and dishes that are LOCAL to
+${place} and that someone who actually lives there would immediately
+recognize by name from everyday life — the specific local chains and
+traditional/regional dishes people there actually eat and talk about, not
+just any brand that happens to have a location there. Do NOT default to
+multinational chains (McDonald's, KFC, Subway, Domino's, Starbucks, Pizza
+Hut, etc.) just because they're the easiest to think of or operate
+worldwide — only reach for one of those if there is genuinely no well-known
+local equivalent for that specific comparison. When in doubt, prioritize a
+local-only chain or a traditional dish over an international one.`
     : ""
 }
 ${
@@ -132,18 +142,18 @@ fresh follow-up post, not a copy of what's shown.`
 }
 
 First decide the FORMAT for this post${hasImages ? " (matching the reference image(s) if attached)" : ""}:
-- "this-or-that": head-to-head comparisons of two options per slide (e.g. Big Mac vs. grilled chicken sandwich)
+- "this-or-that": head-to-head comparisons of two options per slide (e.g. a fried chicken sandwich vs. a grilled chicken sandwich)
 - "day-on-a-plate": one slide showing several meals/snacks across a day (breakfast, lunch, dinner, snacks, etc.)
 ${hasImages ? "" : 'Default to "this-or-that" unless the topic clearly calls for a full day of meals.'}
 
 Each food QUERY below MUST be a real, well-known food or menu item, written
 as a SHORT, searchable name (2-5 words) the way it would appear on a
-nutrition label — e.g. "Big Mac", "grilled chicken sandwich", "blueberry
-muffin", "chocolate milkshake". Do NOT add descriptive clauses like "with
+nutrition label — e.g. "grilled chicken sandwich", "blueberry muffin",
+"chocolate milkshake", or a specific local menu item's actual name. Do NOT add descriptive clauses like "with
 brown rice, black beans, and salsa" or "on whole wheat" — those hurt the
 database search and are not allowed. A restaurant/brand name is fine only
-when it's part of the item's actual product name (e.g. "Big Mac"); otherwise
-keep it generic. It will be looked up in the USDA FoodData Central database
+when it's part of the item's actual product name; otherwise keep it
+generic. It will be looked up in the USDA FoodData Central database
 (which is US-centric and may not carry local/regional brands or dishes) for
 its real calorie count — do not invent numbers, only name real foods.
 
@@ -286,9 +296,10 @@ export async function brainstormCarousel(
   images: string[],
   count: number,
   region: string,
+  city: string,
   settings: AppSettings
 ): Promise<BrainstormedCarousel> {
-  const prompt = buildCarouselBrainstormPrompt(topic, count, images.length > 0, region);
+  const prompt = buildCarouselBrainstormPrompt(topic, count, images.length > 0, region, city);
   const text = await draftCopy(prompt, settings, {
     images: images.length > 0 ? images : undefined,
     maxTokens: 500 + count * 260,
