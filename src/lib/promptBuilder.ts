@@ -36,10 +36,21 @@ export function brandBadge(brand: CarouselBrand): string {
 accent color.`;
 }
 
+/** Background instruction shared by title/cta prompts: use an attached photo
+ * as-is if one was uploaded, otherwise fall back to imagining a scene. */
+function backgroundInstruction(scenePrompt: string, hasPhoto: boolean): string {
+  return hasPhoto
+    ? `A reference photo is attached. Use it EXACTLY as the background image of
+the slide — do not regenerate, replace, or meaningfully alter the photo
+itself (light crop/contrast touch-ups for legibility and portrait 4:5
+framing are fine).`
+    : `Background: a candid, high-quality lifestyle photograph — ${scenePrompt}`;
+}
+
 function titlePrompt(data: TitleSlideData, brand: CarouselBrand): string {
   return `Generate one finished, ready-to-post Instagram carousel cover slide, portrait 4:5 aspect ratio.
 
-Background: a candid, high-quality lifestyle photograph — ${data.scenePrompt}
+${backgroundInstruction(data.scenePrompt, !!data.photo)}
 
 Overlay near the top of the image: a solid black rounded rectangle badge
 (like a speech-bubble callout with a small pointer tail) containing bold
@@ -132,7 +143,7 @@ function ctaPrompt(data: CtaSlideData, brand: CarouselBrand): string {
   return `Generate one finished, ready-to-post Instagram carousel closing slide,
 portrait 4:5 aspect ratio.
 
-Background: a candid, high-quality lifestyle photograph — ${data.scenePrompt}
+${backgroundInstruction(data.scenePrompt, !!data.photo)}
 
 Overlay near the top of the image: a solid black rounded rectangle badge
 containing bold white uppercase-first-letter text, centered, that reads
@@ -155,4 +166,13 @@ export function buildSlidePrompt(data: SlideData, brand: CarouselBrand): string 
     case "cta":
       return ctaPrompt(data, brand);
   }
+}
+
+/** Reference photo(s) (data URLs) to send alongside the prompt for image
+ * generation — currently just the optional cover/CTA background photo. */
+export function slidePhotos(data: SlideData): string[] {
+  if ((data.kind === "title" || data.kind === "cta") && data.photo) {
+    return [data.photo];
+  }
+  return [];
 }

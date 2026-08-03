@@ -17,6 +17,8 @@ export interface TitleSlideData {
   headline: string;
   subheadline?: string;
   scenePrompt: string;
+  /** A user-uploaded photo (data URL) to use as-is instead of an AI-imagined scene. */
+  photo?: string | null;
 }
 
 export interface ThisOrThatSlideData {
@@ -42,6 +44,8 @@ export interface CtaSlideData {
   kind: "cta";
   message: string;
   scenePrompt: string;
+  /** A user-uploaded photo (data URL) to use as-is instead of an AI-imagined scene. */
+  photo?: string | null;
 }
 
 export type SlideData =

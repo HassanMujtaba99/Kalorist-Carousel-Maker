@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth/client";
 import { useSettings } from "@/hooks/useSettings";
 import { useGuestMode } from "@/hooks/useGuestMode";
 import { emptyCarousel, createSlide, CONTENT_SLIDE_KINDS } from "@/lib/carousel";
-import { buildSlidePrompt } from "@/lib/promptBuilder";
+import { buildSlidePrompt, slidePhotos } from "@/lib/promptBuilder";
 import { generateSlideImage } from "@/lib/geminiClient";
 import {
   createSavedCarousel,
@@ -97,7 +97,8 @@ export function CarouselBuilder() {
       const imageDataUrl = await generateSlideImage(
         prompt,
         settings.geminiApiKey,
-        settings.geminiModel
+        settings.geminiModel,
+        slidePhotos(slide.data)
       );
       updateSlide(slide.id, { status: "done", imageDataUrl });
     } catch (e) {

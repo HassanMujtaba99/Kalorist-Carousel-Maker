@@ -25,6 +25,16 @@ live USDA FoodData Central search per comparison, never from the model
 itself. Review/edit the result like any other slide before generating
 images.
 
+## Use your own photo as the Cover/CTA background
+
+The Cover and Closing/CTA slide editors have an optional "Background photo"
+upload. Attach a real photo and it's used EXACTLY as the slide's background
+(only light crop/contrast touch-ups for legibility and portrait framing) —
+Gemini composes the headline badge and brand badge on top of it instead of
+imagining a scene from a text prompt. The "Background scene" text field is
+disabled and ignored while a photo is attached; remove the photo to go back
+to an AI-imagined background.
+
 ## Recreate from your own photos
 
 At `/recreate` (linked from the main builder) is an alternate flow for when

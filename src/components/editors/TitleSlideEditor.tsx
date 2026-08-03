@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AppSettings, TitleSlideData } from "@/lib/types";
 import { draftCopy, activeCopyApiKey, copyProviderLabel } from "@/lib/copyProvider";
 import { buildHeadlinePrompt } from "@/lib/copyAssist";
+import { ImageUpload } from "../ImageUpload";
 
 interface Props {
   data: TitleSlideData;
@@ -64,14 +65,22 @@ export function TitleSlideEditor({ data, settings, onChange }: Props) {
           className="kal-input"
         />
       </label>
+      <ImageUpload
+        label="Background photo (optional — uses your own photo as-is instead of an AI-imagined scene)"
+        photo={data.photo ?? null}
+        onChange={(photo) => onChange({ ...data, photo })}
+      />
       <label className="block text-sm">
-        <span className="kal-label">Background scene</span>
+        <span className="kal-label">
+          Background scene{data.photo ? " (ignored while a photo is attached above)" : ""}
+        </span>
         <textarea
           value={data.scenePrompt}
           onChange={(e) => onChange({ ...data, scenePrompt: e.target.value })}
           rows={2}
           placeholder="e.g. a smiling person in gym clothes standing in a bright kitchen"
-          className="kal-input"
+          disabled={!!data.photo}
+          className="kal-input disabled:opacity-40"
         />
       </label>
     </div>

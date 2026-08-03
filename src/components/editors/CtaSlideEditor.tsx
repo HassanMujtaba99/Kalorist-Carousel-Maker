@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AppSettings, CtaSlideData } from "@/lib/types";
 import { draftCopy, activeCopyApiKey, copyProviderLabel } from "@/lib/copyProvider";
 import { buildCtaPrompt } from "@/lib/copyAssist";
+import { ImageUpload } from "../ImageUpload";
 
 interface Props {
   data: CtaSlideData;
@@ -55,13 +56,21 @@ export function CtaSlideEditor({ data, settings, onChange }: Props) {
         />
         {error && <p className="mt-1 text-xs font-semibold text-purple">{error}</p>}
       </label>
+      <ImageUpload
+        label="Background photo (optional — uses your own photo as-is instead of an AI-imagined scene)"
+        photo={data.photo ?? null}
+        onChange={(photo) => onChange({ ...data, photo })}
+      />
       <label className="block text-sm">
-        <span className="kal-label">Background scene</span>
+        <span className="kal-label">
+          Background scene{data.photo ? " (ignored while a photo is attached above)" : ""}
+        </span>
         <textarea
           value={data.scenePrompt}
           onChange={(e) => onChange({ ...data, scenePrompt: e.target.value })}
           rows={2}
-          className="kal-input"
+          disabled={!!data.photo}
+          className="kal-input disabled:opacity-40"
         />
       </label>
     </div>
