@@ -9,6 +9,7 @@ import { WelcomeGate } from "./WelcomeGate";
 import { PhotoCaptionRecreator } from "./recreate/PhotoCaptionRecreator";
 import { ThisOrThatRecreator } from "./recreate/ThisOrThatRecreator";
 import { DayOnAPlateRecreator } from "./recreate/DayOnAPlateRecreator";
+import { BadgeTemplatePicker } from "./BadgeTemplatePicker";
 import type { CarouselBrand } from "@/lib/types";
 
 type Mode = "photo-caption" | "this-or-that" | "day-on-a-plate";
@@ -25,7 +26,11 @@ export function RecreateBuilder() {
   const { guest, loaded: guestLoaded, continueAsGuest } = useGuestMode();
   const { settings, loaded } = useSettings(user?.id ?? null);
   const [mode, setMode] = useState<Mode>("photo-caption");
-  const [brand, setBrand] = useState<CarouselBrand>({ name: "MY COACHING", accentColor: "#22c55e" });
+  const [brand, setBrand] = useState<CarouselBrand>({
+    name: "MY COACHING",
+    accentColor: "#22c55e",
+    badgeTemplate: "pill",
+  });
 
   if (sessionPending || !guestLoaded) return null;
   if (!user && !guest) {
@@ -75,15 +80,21 @@ export function RecreateBuilder() {
           ))}
         </div>
         <div className="space-y-4 p-4">
-          <label className="block max-w-xs text-sm">
-            <span className="kal-label">Brand name (badge)</span>
-            <input
-              type="text"
-              value={brand.name}
-              onChange={(e) => setBrand((b) => ({ ...b, name: e.target.value }))}
-              className="kal-input"
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="kal-label">Brand name (badge)</span>
+              <input
+                type="text"
+                value={brand.name}
+                onChange={(e) => setBrand((b) => ({ ...b, name: e.target.value }))}
+                className="kal-input"
+              />
+            </label>
+            <BadgeTemplatePicker
+              value={brand.badgeTemplate}
+              onChange={(badgeTemplate) => setBrand((b) => ({ ...b, badgeTemplate }))}
             />
-          </label>
+          </div>
           {mode === "photo-caption" && <PhotoCaptionRecreator settings={settings} brand={brand} />}
           {mode === "this-or-that" && <ThisOrThatRecreator settings={settings} brand={brand} />}
           {mode === "day-on-a-plate" && <DayOnAPlateRecreator settings={settings} brand={brand} />}

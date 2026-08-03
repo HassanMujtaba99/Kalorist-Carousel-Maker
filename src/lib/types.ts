@@ -71,9 +71,17 @@ export interface Slide {
   error?: string;
 }
 
+/** Visual template for the brand name tag rendered on every slide. Giving
+ * the image model a precise, fixed shape per template (instead of one vague
+ * "logo badge" description) makes the badge render consistently across
+ * slides in the same carousel instead of reinterpreted differently each
+ * generation. */
+export type BadgeTemplate = "pill" | "ribbon" | "circle" | "underline";
+
 export interface CarouselBrand {
   name: string;
   accentColor: string;
+  badgeTemplate: BadgeTemplate;
 }
 
 export interface CarouselState {

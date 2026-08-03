@@ -26,6 +26,7 @@ import { MyCarouselsPanel } from "./MyCarouselsPanel";
 import { BrainstormPanel } from "./BrainstormPanel";
 import { SlideCard } from "./SlideCard";
 import { AddContentSlideButton } from "./AddContentSlideButton";
+import { BadgeTemplatePicker } from "./BadgeTemplatePicker";
 
 export function CarouselBuilder() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
@@ -266,6 +267,14 @@ export function CarouselBuilder() {
             className="kal-input"
           />
         </label>
+        <div className="sm:col-span-2">
+          <BadgeTemplatePicker
+            value={carousel.brand.badgeTemplate}
+            onChange={(badgeTemplate) =>
+              setCarousel((c) => ({ ...c, brand: { ...c.brand, badgeTemplate } }))
+            }
+          />
+        </div>
       </section>
 
       <section className="space-y-3">

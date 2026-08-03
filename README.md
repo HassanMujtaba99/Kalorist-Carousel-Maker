@@ -7,6 +7,16 @@ Every calorie and protein figure shown on a slide is looked up live from the
 the image-generation prompt as a verified fact — the model is never asked to
 invent nutrition numbers.
 
+Product photography on comparison/plate slides is generated from each
+slide's human-facing label, never from the raw USDA database description or
+its calorie/protein figures — so the photo always matches what the label
+says, even when the underlying nutrition data came from a generic
+approximation (see below) rather than an exact brand match. The brand name
+tag has four selectable templates (Rounded Pill, Corner Ribbon, Circle Seal,
+Underline) picked in the title/brand section — each is a precise, fixed
+shape so the badge renders consistently across every slide instead of being
+reinterpreted differently each generation.
+
 Slides are fully AI-generated (background, layout, and text) using Google's
 Gemini image generation model (`gemini-2.5-flash-image`, aka "Nano Banana").
 On-slide copy (headlines, labels, CTAs) can optionally be drafted by an AI

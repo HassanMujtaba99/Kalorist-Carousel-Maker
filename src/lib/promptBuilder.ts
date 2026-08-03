@@ -1,8 +1,8 @@
 import type {
+  BadgeTemplate,
   CarouselBrand,
   CtaSlideData,
   DayOnAPlateSlideData,
-  FoodItem,
   SlideData,
   ThisOrThatSlideData,
   TitleSlideData,
@@ -12,16 +12,25 @@ import { sumCalories, sumProtein } from "./nutrition";
 export const STYLE_GUIDE = `Design system: minimalist Instagram carousel slide for a fitness/nutrition
 coaching brand. Portrait orientation, generous white space, clean bold
 sans-serif typography (similar to a rounded grotesk / Poppins style), fully
-legible spelling with no garbled or misspelled letters. No stock-photo
-watermarks, no extra logos, no borders, no captions outside of the slide
-itself.`;
+legible spelling with no garbled or misspelled letters. Keep the whole
+composition as clean and simple as possible: a single flat background color,
+no gradients, no textures, no decorative patterns, no stock-photo
+watermarks, no extra logos or icons beyond what's explicitly described
+below, no borders, no captions outside of the slide itself. Every element
+should earn its place — when in doubt, leave it out.`;
 
-export function foodLine(item: FoodItem): string {
-  const serving = item.servingDescription ? ` (${item.servingDescription})` : "";
-  const brand = item.brandName ? `${item.brandName} ` : "";
-  return `${brand}${item.description}${serving} — exactly ${item.calories} kcal${
-    item.protein ? `, ${item.protein}g protein` : ""
-  }`;
+/**
+ * What to literally photograph — driven entirely by the human-facing label,
+ * never by the raw USDA item description or its calorie/protein figures.
+ * The underlying FoodItem can be a generic approximation (see
+ * carouselBrainstorm.ts) that no longer visually matches the specific thing
+ * the label promises, and mixing nutrition-fact text into a photography
+ * instruction ("product photography of X — exactly 300 kcal") confuses the
+ * image model into rendering stray numbers/text into the photo itself.
+ * Numbers only ever appear via the pill badge instruction and attribution().
+ */
+export function photoSubject(label: string): string {
+  return `exactly what this label describes: "${label}" — nothing else, no extra food items, no text or numbers baked into the photo itself`;
 }
 
 export function attribution(): string {
@@ -30,10 +39,47 @@ FoodData Central database — render every number EXACTLY as given below, do
 not round, invent, or alter a single digit.`;
 }
 
+export const BADGE_TEMPLATES: { id: BadgeTemplate; label: string; preview: string }[] = [
+  { id: "pill", label: "Rounded Pill", preview: "⬭ Solid rounded pill" },
+  { id: "ribbon", label: "Corner Ribbon", preview: "◤ Diagonal ribbon" },
+  { id: "circle", label: "Circle Seal", preview: "⬤ Circular seal" },
+  { id: "underline", label: "Underline", preview: "_ Text + underline" },
+];
+
+/**
+ * Brand name tag instructions, one per template. Each is deliberately
+ * precise about shape/size/color and explicitly bans extras (icons,
+ * gradients, textures) — a vague instruction like "a small logo badge" gets
+ * reinterpreted differently by the image model on every single generation,
+ * which is what made the badge look inconsistent from slide to slide.
+ */
 export function brandBadge(brand: CarouselBrand): string {
-  return `Top-left corner: a small rounded logo badge with the brand name
-"${brand.name}" in bold uppercase letters, using ${brand.accentColor} as an
-accent color.`;
+  const name = brand.name;
+  const color = brand.accentColor;
+  switch (brand.badgeTemplate) {
+    case "ribbon":
+      return `Top-left corner: a small diagonal ribbon banner folded across the very
+corner of the image, filled with a single flat color ${color}, with the
+brand name "${name}" in bold white uppercase letters running along the
+ribbon. Flat color only — no gradient, no texture, no icon, no shadow.`;
+    case "circle":
+      return `Top-left corner: one small solid circular badge (like a plain seal or
+stamp), filled with a single flat color ${color}, with the brand name
+"${name}" in bold white uppercase letters centered inside the circle
+(stacked on two lines if needed to fit). Flat color only — no gradient, no
+texture, no icon, no shadow.`;
+    case "underline":
+      return `Top-left corner: no badge shape at all — just the brand name "${name}"
+as bold uppercase text in the color ${color}, with a short solid
+underline in the same color directly beneath it. No background fill, no
+border, no icon.`;
+    case "pill":
+    default:
+      return `Top-left corner: one small solid rounded-rectangle pill badge, filled
+with a single flat color ${color}, with the brand name "${name}" in bold
+white uppercase letters centered inside it. Flat color only — no gradient,
+no texture, no icon, no shadow.`;
+  }
 }
 
 /** Background instruction shared by title/cta prompts: use an attached photo
@@ -69,14 +115,13 @@ Spell every word in the headline correctly and exactly as written above.`;
 }
 
 function thisOrThatPrompt(data: ThisOrThatSlideData, brand: CarouselBrand): string {
-  const left = data.leftItems.map(foodLine).join("; ");
-  const right = data.rightItems.map(foodLine).join("; ");
   const leftCals = sumCalories(data.leftItems);
   const rightCals = sumCalories(data.rightItems);
 
   return `Generate one finished, ready-to-post Instagram carousel slide, portrait
-4:5 aspect ratio, light blue/white flat background (#e8eef7 style), in the
-visual language of an "evidence based nutrition" comparison graphic.
+4:5 aspect ratio, a single solid flat light blue background color (#e8eef7,
+no gradient, no texture, no pattern), in the visual language of a clean
+"evidence based nutrition" comparison graphic.
 
 ${brandBadge(brand)}
 
@@ -86,12 +131,12 @@ reading exactly: "THIS OR THAT"
 Below the headline, a two-column layout:
 
 LEFT column — labeled "${data.leftLabel}" in bold text below the photo:
-  Show appetising product photography of: ${left}
+  Show one simple, appetising product photo of ${photoSubject(data.leftLabel)}
   Below the photo, a black rounded pill badge with bold white text reading
   exactly: "${leftCals} CALS"
 
 RIGHT column — labeled "${data.rightLabel}" in bold text below the photo(s):
-  Show appetising product photography of: ${right}
+  Show one simple, appetising product photo of ${photoSubject(data.rightLabel)}
   Below the photo(s), a black rounded pill badge with bold white text reading
   exactly: "${rightCals} CALS"
 
@@ -104,10 +149,7 @@ ${STYLE_GUIDE}`;
 
 function dayOnAPlatePrompt(data: DayOnAPlateSlideData, brand: CarouselBrand): string {
   const sections = data.sections
-    .map((section, i) => {
-      const items = section.items.map(foodLine).join("; ");
-      return `  ${i + 1}. Labeled "${section.label}": product photography of ${items}`;
-    })
+    .map((section, i) => `  ${i + 1}. Labeled "${section.label}": one simple product photo of ${photoSubject(section.label)}`)
     .join("\n");
 
   const allItems = data.sections.flatMap((s) => s.items);
@@ -115,15 +157,18 @@ function dayOnAPlatePrompt(data: DayOnAPlateSlideData, brand: CarouselBrand): st
   const totalProtein = sumProtein(allItems);
 
   return `Generate one finished, ready-to-post Instagram carousel slide, portrait
-4:5 aspect ratio, light blue/white flat background (#e8eef7 style).
+4:5 aspect ratio, a single solid flat light blue background color (#e8eef7,
+no gradient, no texture, no pattern).
 
 ${brandBadge(brand)}
 
 Below the badge, large bold black condensed uppercase headline text, centered,
 reading exactly: "DAY ON A PLATE"
 
-Below the headline, a 2x2 grid of ${data.sections.length} food photos, each
-with its label in bold text above the photo:
+Below the headline, an evenly-spaced grid of exactly ${data.sections.length}
+food photo${data.sections.length === 1 ? "" : "s"}${
+    data.sections.length === 4 ? " (2x2)" : ""
+  }, each with its label in bold text above the photo:
 ${sections}
 
 Below the grid, two black rounded pill badges side by side with bold white
@@ -132,9 +177,9 @@ text reading exactly:
   Right pill: "${totalProtein}G PROTEIN"
 
 ${attribution()}
-Total calories across all four meals: ${totalCals} kcal. Total protein:
-${totalProtein}g. These are the only numeric totals allowed to appear on the
-slide.
+Total calories across all ${data.sections.length} sections: ${totalCals} kcal.
+Total protein: ${totalProtein}g. These are the only numeric totals allowed to
+appear on the slide.
 
 ${STYLE_GUIDE}`;
 }

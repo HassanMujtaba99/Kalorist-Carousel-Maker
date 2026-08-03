@@ -25,7 +25,7 @@ export const CONTENT_SLIDE_KINDS: SlideKind[] = ["this-or-that", "day-on-a-plate
 export function emptyCarousel(): CarouselState {
   return {
     title: "Untitled Carousel",
-    brand: { name: "MY COACHING", accentColor: "#22c55e" },
+    brand: { name: "MY COACHING", accentColor: "#22c55e", badgeTemplate: "pill" },
     cover: createSlide("title"),
     content: [],
     cta: createSlide("cta"),

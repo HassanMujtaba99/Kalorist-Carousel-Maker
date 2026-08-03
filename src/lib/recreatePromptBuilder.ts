@@ -1,5 +1,5 @@
 import type { CarouselBrand } from "./types";
-import { STYLE_GUIDE, attribution, brandBadge, foodLine } from "./promptBuilder";
+import { STYLE_GUIDE, attribution, brandBadge, photoSubject } from "./promptBuilder";
 import { sumCalories, sumProtein } from "./nutrition";
 import type { FoodWithPhoto, PlateSectionRecreateInput } from "./recreateTypes";
 
@@ -51,22 +51,20 @@ export function buildThisOrThatRecreatePrompt(
 ): string {
   const leftCals = sumCalories(left.items);
   const rightCals = sumCalories(right.items);
-  const leftDesc = left.items.map(foodLine).join("; ") || left.label;
-  const rightDesc = right.items.map(foodLine).join("; ") || right.label;
 
   const attachedOrder = [left.photo ? "LEFT" : null, right.photo ? "RIGHT" : null].filter(Boolean);
 
   const leftPhotoInstruction = left.photo
     ? "A reference photo for this column is attached — use it EXACTLY as the food image, do not regenerate it."
-    : `Generate appetising product photography of: ${leftDesc}`;
+    : `Generate one simple, appetising product photo of ${photoSubject(left.label)}`;
   const rightPhotoInstruction = right.photo
     ? "A reference photo for this column is attached — use it EXACTLY as the food image, do not regenerate it."
-    : `Generate appetising product photography of: ${rightDesc}`;
+    : `Generate one simple, appetising product photo of ${photoSubject(right.label)}`;
 
   return `Recreate this reference layout as one finished, ready-to-post Instagram
-carousel slide, portrait 4:5 aspect ratio, light blue/white flat background
-(#e8eef7 style), in the visual language of an "evidence based nutrition"
-comparison graphic.
+carousel slide, portrait 4:5 aspect ratio, a single solid flat light blue
+background color (#e8eef7, no gradient, no texture, no pattern), in the
+visual language of a clean "evidence based nutrition" comparison graphic.
 ${
   attachedOrder.length > 0
     ? `\n${attachedOrder.length} reference photo(s) are attached, in this order: ${attachedOrder.join(", then ")}.`
@@ -109,17 +107,16 @@ export function buildDayOnAPlateRecreatePrompt(
 
   const sectionLines = sections
     .map((section, i) => {
-      const desc = section.items.map(foodLine).join("; ") || section.label;
       const instruction = section.photo
         ? "a reference photo for this section is attached — use it exactly as provided, do not regenerate it"
-        : `generate appetising product photography of: ${desc}`;
+        : `generate one simple, appetising product photo of ${photoSubject(section.label)}`;
       return `  ${i + 1}. Labeled "${section.label}": ${instruction}`;
     })
     .join("\n");
 
   return `Recreate this reference layout as one finished, ready-to-post Instagram
-carousel slide, portrait 4:5 aspect ratio, light blue/white flat background
-(#e8eef7 style).
+carousel slide, portrait 4:5 aspect ratio, a single solid flat light blue
+background color (#e8eef7, no gradient, no texture, no pattern).
 ${
   photoCount > 0
     ? `\n${photoCount} reference photo(s) are attached, in the same order as the labeled sections below that say a reference photo is attached.`
@@ -131,8 +128,10 @@ ${brandBadge(brand)}
 Below the badge, large bold black condensed uppercase headline text, centered,
 reading exactly: "DAY ON A PLATE"
 
-Below the headline, a grid of ${sections.length} food photos, each with its
-label in bold text above the photo:
+Below the headline, an evenly-spaced grid of exactly ${sections.length} food
+photo${sections.length === 1 ? "" : "s"}${
+    sections.length === 4 ? " (2x2)" : ""
+  }, each with its label in bold text above the photo:
 ${sectionLines}
 
 Below the grid, two black rounded pill badges side by side with bold white
