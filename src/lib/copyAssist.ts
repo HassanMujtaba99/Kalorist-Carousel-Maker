@@ -50,3 +50,17 @@ export function parseThisOrThatLabels(
     right: rightMatch[1].trim(),
   };
 }
+
+export function buildProteinSwapTakeawayPrompt(
+  leftItems: FoodItem[],
+  rightItems: FoodItem[]
+): string {
+  return `Write one short, punchy one-liner (max 10 words) that sums up the insight
+of a "same meal, more protein" comparison graphic for Instagram — the kind
+of line that goes under two side-by-side plates, e.g. "Same foods. Protein
+added first." or "Fried food fills you up. Protein keeps you full."
+${COMMON_VOICE}
+Lower-protein side foods: ${foodContext(leftItems)}
+Higher-protein side foods: ${foodContext(rightItems)}
+Reply with ONLY the line — no preamble, no label.`;
+}

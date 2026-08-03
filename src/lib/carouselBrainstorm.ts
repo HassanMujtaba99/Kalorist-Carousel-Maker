@@ -4,6 +4,7 @@ import type {
   DayOnAPlateSlideData,
   FoodItem,
   PlateSection,
+  ProteinSwapSlideData,
   Slide,
   ThisOrThatSlideData,
   TitleSlideData,
@@ -11,6 +12,11 @@ import type {
 import { newId } from "./carousel";
 import { draftCopy } from "./copyProvider";
 import { searchUsdaFood } from "./usdaClient";
+
+/** Cap on how many items the brainstorm will ask for per side of a
+ * protein-swap slide — a real meal is a handful of components, not an
+ * open-ended list, and this keeps the prompt/parsing bounded. */
+const MAX_PROTEIN_SWAP_ITEMS_PER_SIDE = 4;
 
 /**
  * Picks the first USDA search result that actually resolved to a real
@@ -97,7 +103,7 @@ async function resolveFood(
   return { food: null, error: null };
 }
 
-type BrainstormFormat = "this-or-that" | "day-on-a-plate";
+type BrainstormFormat = "this-or-that" | "day-on-a-plate" | "protein-swap";
 
 function buildCarouselBrainstormPrompt(
   topic: string,
@@ -132,7 +138,7 @@ local-only chain or a traditional dish over an international one.`
 ${
   hasImages
     ? `Reference image(s) of an EARLIER post in this same carousel series ("Part 1") are
-attached. Study them to infer: the topic/theme, the tone, and which of the two
+attached. Study them to infer: the topic/theme, the tone, and which of the
 FORMATs below they use. Brainstorm the NEXT installment ("Part 2") that
 continues the same theme and uses the SAME format — but with entirely new
 food picks and new copy. Do not reuse or describe any specific food, price,
@@ -144,7 +150,8 @@ fresh follow-up post, not a copy of what's shown.`
 First decide the FORMAT for this post${hasImages ? " (matching the reference image(s) if attached)" : ""}:
 - "this-or-that": head-to-head comparisons of two options per slide, ideally two competing real restaurant/brand items against each other
 - "day-on-a-plate": one slide showing several meals/snacks across a day (breakfast, lunch, dinner, snacks, etc.)
-${hasImages ? "" : 'Default to "this-or-that" unless the topic clearly calls for a full day of meals.'}
+- "protein-swap": one slide showing the SAME kind of meal two ways — a lower-protein version and a higher-protein version, each a short list of real foods — to show how swapping in protein-rich items upgrades a familiar plate
+${hasImages ? "" : 'Default to "this-or-that" unless the topic clearly calls for a full day of meals or a before/after protein upgrade.'}
 
 Each food QUERY below should name a REAL restaurant/brand's actual menu item
 by name whenever one exists — e.g. "<Brand> <Product>" style naming, the
@@ -183,7 +190,7 @@ Do not add any preamble, explanation, sign-off, markdown formatting, bullet
 points, asterisks, or code fences — the first character of your reply must
 be "F" from "FORMAT:".
 
-FORMAT: <this-or-that or day-on-a-plate>
+FORMAT: <this-or-that, day-on-a-plate, or protein-swap>
 HEADLINE: <cover slide headline, max 12 words>
 CTA: <closing call-to-action line, max 8 words>
 
@@ -198,7 +205,20 @@ COMPARISON_N_RIGHT_LABEL: <punchy 2-4 word label naming the same brand/product a
 If FORMAT is day-on-a-plate, instead follow with exactly ${count} of these blocks (SECTION_1 through SECTION_${count}):
 SECTION_N_LABEL: <meal label, e.g. Breakfast>
 SECTION_N_QUERY: <the real, specific food/menu item name for that meal, brand included if one applies>
-SECTION_N_GENERIC: <plain generic fallback name for that food>`;
+SECTION_N_GENERIC: <plain generic fallback name for that food>
+
+If FORMAT is protein-swap, instead follow with:
+PROTEIN_SWAP_HEADLINE: <a "POV: ..." style headline specific to this slide, max 12 words>
+PROTEIN_SWAP_LEFT_LABEL: <short label for the lower-protein version, e.g. "Less protein">
+PROTEIN_SWAP_LEFT_ITEM_1_QUERY: <real food/menu item name>
+PROTEIN_SWAP_LEFT_ITEM_1_GENERIC: <plain generic fallback name for that food>
+(repeat PROTEIN_SWAP_LEFT_ITEM_N_QUERY / _GENERIC for 2 to ${MAX_PROTEIN_SWAP_ITEMS_PER_SIDE} items total that together form one complete lower-protein meal)
+PROTEIN_SWAP_RIGHT_LABEL: <short label for the higher-protein version, e.g. "More protein">
+PROTEIN_SWAP_RIGHT_ITEM_1_QUERY: <real food/menu item name>
+PROTEIN_SWAP_RIGHT_ITEM_1_GENERIC: <plain generic fallback name for that food>
+(repeat PROTEIN_SWAP_RIGHT_ITEM_N_QUERY / _GENERIC for 2 to ${MAX_PROTEIN_SWAP_ITEMS_PER_SIDE} items total that together form one complete higher-protein meal)
+PROTEIN_SWAP_RECOMMENDED: <left or right — whichever side has meaningfully more protein for a similar or lower calorie count>
+PROTEIN_SWAP_TAKEAWAY: <one short punchy insight line, max 10 words>`;
 }
 
 interface BrainstormComparison {
@@ -216,12 +236,28 @@ interface BrainstormSection {
   generic: string | null;
 }
 
+interface BrainstormFoodQuery {
+  query: string;
+  generic: string | null;
+}
+
+interface BrainstormProteinSwap {
+  headline: string;
+  leftLabel: string;
+  leftItems: BrainstormFoodQuery[];
+  rightLabel: string;
+  rightItems: BrainstormFoodQuery[];
+  recommendedSide: "left" | "right";
+  takeaway: string;
+}
+
 interface ParsedBrainstorm {
   format: BrainstormFormat;
   headline: string;
   cta: string;
   comparisons: BrainstormComparison[];
   sections: BrainstormSection[];
+  proteinSwap: BrainstormProteinSwap | null;
 }
 
 /** Strips common markdown noise models add despite being told not to (code
@@ -240,16 +276,62 @@ function extractField(text: string, key: string): string | null {
   return match[1].trim().replace(/\*+$/, "").replace(/^["'`]|["'`]$/g, "").trim();
 }
 
+function extractFoodQueryList(text: string, prefix: string): BrainstormFoodQuery[] {
+  const items: BrainstormFoodQuery[] = [];
+  for (let i = 1; i <= MAX_PROTEIN_SWAP_ITEMS_PER_SIDE; i++) {
+    const query = extractField(text, `${prefix}${i}_QUERY`);
+    if (!query) break;
+    const generic = extractField(text, `${prefix}${i}_GENERIC`);
+    items.push({ query, generic });
+  }
+  return items;
+}
+
 function parseCarouselBrainstorm(rawText: string, count: number): ParsedBrainstorm | null {
   const text = normalizeBrainstormText(rawText);
   const headline = extractField(text, "HEADLINE");
   const cta = extractField(text, "CTA");
   if (!headline || !cta) return null;
 
+  const formatRaw = extractField(text, "FORMAT")?.trim().toLowerCase();
   const format: BrainstormFormat =
-    extractField(text, "FORMAT")?.trim().toLowerCase() === "day-on-a-plate"
+    formatRaw === "day-on-a-plate"
       ? "day-on-a-plate"
-      : "this-or-that";
+      : formatRaw === "protein-swap"
+        ? "protein-swap"
+        : "this-or-that";
+
+  if (format === "protein-swap") {
+    const swapHeadline = extractField(text, "PROTEIN_SWAP_HEADLINE");
+    const leftLabel = extractField(text, "PROTEIN_SWAP_LEFT_LABEL");
+    const rightLabel = extractField(text, "PROTEIN_SWAP_RIGHT_LABEL");
+    const takeaway = extractField(text, "PROTEIN_SWAP_TAKEAWAY");
+    const recommendedRaw = extractField(text, "PROTEIN_SWAP_RECOMMENDED")?.trim().toLowerCase();
+    const leftItems = extractFoodQueryList(text, "PROTEIN_SWAP_LEFT_ITEM_");
+    const rightItems = extractFoodQueryList(text, "PROTEIN_SWAP_RIGHT_ITEM_");
+
+    if (
+      !swapHeadline ||
+      !leftLabel ||
+      !rightLabel ||
+      !takeaway ||
+      leftItems.length === 0 ||
+      rightItems.length === 0
+    ) {
+      return null;
+    }
+
+    const proteinSwap: BrainstormProteinSwap = {
+      headline: swapHeadline,
+      leftLabel,
+      leftItems,
+      rightLabel,
+      rightItems,
+      recommendedSide: recommendedRaw === "left" ? "left" : "right",
+      takeaway,
+    };
+    return { format, headline, cta, comparisons: [], sections: [], proteinSwap };
+  }
 
   if (format === "day-on-a-plate") {
     const sections: BrainstormSection[] = [];
@@ -261,7 +343,7 @@ function parseCarouselBrainstorm(rawText: string, count: number): ParsedBrainsto
       sections.push({ label, query, generic });
     }
     if (sections.length === 0) return null;
-    return { format, headline, cta, comparisons: [], sections };
+    return { format, headline, cta, comparisons: [], sections, proteinSwap: null };
   }
 
   const comparisons: BrainstormComparison[] = [];
@@ -277,7 +359,7 @@ function parseCarouselBrainstorm(rawText: string, count: number): ParsedBrainsto
   }
   if (comparisons.length === 0) return null;
 
-  return { format, headline, cta, comparisons, sections: [] };
+  return { format, headline, cta, comparisons, sections: [], proteinSwap: null };
 }
 
 export interface BrainstormedCarousel {
@@ -296,14 +378,16 @@ export interface BrainstormedCarousel {
 
 /**
  * Brainstorms a full carousel's worth of content in one shot: a cover
- * headline, `count` "this or that" comparisons OR a "day on a plate" grid
- * (format inferred from the topic and, if attached, from reference images
- * treated as an earlier "Part 1" post in the same series), plus a closing
- * CTA. The AI only proposes *which* real foods to use (as search queries) —
- * every calorie number still comes from an actual USDA FoodData Central
- * lookup, never from the model itself. If a specific brand/item isn't in
- * USDA's database, a generic equivalent it also proposed is used instead
- * (flagged as approximated), rather than leaving the slide empty.
+ * headline, a middle content slide in one of three formats — `count` "this
+ * or that" comparisons, a "day on a plate" grid, or a "protein swap"
+ * before/after meal comparison — (format inferred from the topic and, if
+ * attached, from reference images treated as an earlier "Part 1" post in
+ * the same series), plus a closing CTA. The AI only proposes *which* real
+ * foods to use (as search queries) — every calorie/protein number still
+ * comes from an actual USDA FoodData Central lookup, never from the model
+ * itself. If a specific brand/item isn't in USDA's database, a generic
+ * equivalent it also proposed is used instead (flagged as approximated),
+ * rather than leaving the slide empty.
  */
 export async function brainstormCarousel(
   topic: string,
@@ -316,7 +400,7 @@ export async function brainstormCarousel(
   const prompt = buildCarouselBrainstormPrompt(topic, count, images.length > 0, region, city);
   const text = await draftCopy(prompt, settings, {
     images: images.length > 0 ? images : undefined,
-    maxTokens: 500 + count * 260,
+    maxTokens: 700 + count * 260,
   });
 
   const parsed = parseCarouselBrainstorm(text, count);
@@ -339,7 +423,44 @@ export async function brainstormCarousel(
     if (res.food?.approximated && generic) approximatedItems.push(`${query} → ${generic}`);
   };
 
-  if (parsed.format === "day-on-a-plate") {
+  if (parsed.format === "protein-swap" && parsed.proteinSwap) {
+    const swap = parsed.proteinSwap;
+    totalQueries = swap.leftItems.length + swap.rightItems.length;
+
+    const resolveSide = async (items: BrainstormFoodQuery[], sideLabel: string) => {
+      const resolutions = await Promise.all(
+        items.map((item) => resolveFood(item.query, item.generic, settings.usdaApiKey))
+      );
+      const foods: FoodItem[] = [];
+      resolutions.forEach((res, i) => {
+        track(items[i].query, items[i].generic, res);
+        if (res.error) {
+          usdaErrors.push(res.error);
+        } else if (!res.food) {
+          unresolvedComparisons.push(`${sideLabel}: ${items[i].query}`);
+        }
+        if (res.food) foods.push(res.food);
+      });
+      return foods;
+    };
+
+    const [leftFoods, rightFoods] = await Promise.all([
+      resolveSide(swap.leftItems, swap.leftLabel),
+      resolveSide(swap.rightItems, swap.rightLabel),
+    ]);
+
+    const data: ProteinSwapSlideData = {
+      kind: "protein-swap",
+      headline: swap.headline,
+      leftLabel: swap.leftLabel,
+      leftItems: leftFoods,
+      rightLabel: swap.rightLabel,
+      rightItems: rightFoods,
+      recommendedSide: swap.recommendedSide,
+      takeaway: swap.takeaway,
+    };
+    content.push({ id: newId("slide"), data, status: "idle" });
+  } else if (parsed.format === "day-on-a-plate") {
     totalQueries = parsed.sections.length;
     const resolutions = await Promise.all(
       parsed.sections.map((section) =>

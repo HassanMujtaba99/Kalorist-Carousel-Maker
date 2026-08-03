@@ -74,7 +74,7 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
       {open && (
         <div className="space-y-4 border-t-2 border-ink px-4 py-4">
           <p className="text-sm text-ink/60">
-            {`Type a topic, attach reference images from an earlier post, or both. If you attach images, ${providerLabel} treats them as "Part 1" of the series and brainstorms the next installment — same theme, same format (this-or-that or day-on-a-plate, whichever they show) — without repeating what's already in them. Set a target region (and optionally a city) to get brands and dishes actually local to that audience — not just international chains that happen to have a branch there. Every calorie number is still a real, live USDA FoodData Central lookup — if the exact local item isn't in USDA's (US-centric) database, a close generic equivalent's real numbers are used instead, clearly marked, never invented by the model.`}
+            {`Type a topic, attach reference images from an earlier post, or both. If you attach images, ${providerLabel} treats them as "Part 1" of the series and brainstorms the next installment — same theme, same format (this-or-that, day-on-a-plate, or protein-swap, whichever they show) — without repeating what's already in them. Set a target region (and optionally a city) to get brands and dishes actually local to that audience — not just international chains that happen to have a branch there. Every calorie number is still a real, live USDA FoodData Central lookup — if the exact local item isn't in USDA's (US-centric) database, a close generic equivalent's real numbers are used instead, clearly marked, never invented by the model.`}
           </p>
 
           <label className="block text-sm">

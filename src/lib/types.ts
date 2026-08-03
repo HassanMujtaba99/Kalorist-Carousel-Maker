@@ -53,10 +53,28 @@ export interface CtaSlideData {
   photo?: string | null;
 }
 
+/**
+ * "Protein swap" comparison: the same kind of meal shown two ways — a lower-
+ * protein version and a higher-protein version — each a real list of foods
+ * with a summed protein/calorie total, one side marked as the recommended
+ * pick (gets a checkmark on the slide).
+ */
+export interface ProteinSwapSlideData {
+  kind: "protein-swap";
+  headline: string;
+  leftLabel: string;
+  leftItems: FoodItem[];
+  rightLabel: string;
+  rightItems: FoodItem[];
+  recommendedSide: "left" | "right";
+  takeaway: string;
+}
+
 export type SlideData =
   | TitleSlideData
   | ThisOrThatSlideData
   | DayOnAPlateSlideData
+  | ProteinSwapSlideData
   | CtaSlideData;
 
 export type SlideKind = SlideData["kind"];

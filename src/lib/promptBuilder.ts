@@ -3,6 +3,8 @@ import type {
   CarouselBrand,
   CtaSlideData,
   DayOnAPlateSlideData,
+  FoodItem,
+  ProteinSwapSlideData,
   SlideData,
   ThisOrThatSlideData,
   TitleSlideData,
@@ -184,6 +186,62 @@ appear on the slide.
 ${STYLE_GUIDE}`;
 }
 
+function itemNameList(items: FoodItem[], fallbackLabel: string): string {
+  if (items.length === 0) return fallbackLabel;
+  return items.map((item) => item.description).join(", ");
+}
+
+function proteinSwapPrompt(data: ProteinSwapSlideData, brand: CarouselBrand): string {
+  const leftCals = sumCalories(data.leftItems);
+  const leftProtein = sumProtein(data.leftItems);
+  const rightCals = sumCalories(data.rightItems);
+  const rightProtein = sumProtein(data.rightItems);
+  const leftList = itemNameList(data.leftItems, data.leftLabel);
+  const rightList = itemNameList(data.rightItems, data.rightLabel);
+  const recommendedLabel = data.recommendedSide === "left" ? data.leftLabel : data.rightLabel;
+
+  return `Generate one finished, ready-to-post Instagram carousel slide, portrait
+4:5 aspect ratio, a single solid flat off-white/cream background color, in
+the visual language of a clean "same meal, upgraded" nutrition comparison
+graphic.
+
+${brandBadge(brand)}
+
+Centered in the middle of the composition, behind the two-column content
+below (not overlapping the badge): a faint, low-opacity watermark of the
+brand name "${brand.name}" — subtle enough not to distract from the content,
+flat color only, no gradient, no texture.
+
+Below the badge, large bold black headline text, left-aligned, reading
+exactly: "${data.headline}"
+
+Below the headline, a two-column layout divided by a thin vertical line:
+
+LEFT column, small bold header text reading exactly: "${data.leftLabel}"
+  Directly below that header, bold text reading exactly: "${leftProtein}G PROTEIN · ${leftCals} KCAL"
+  Below that, show one simple, appetising top-down product photo of
+  ${photoSubject(data.leftLabel)}
+  Below the photo, small plain text listing exactly: "${leftList}"
+  ${data.recommendedSide === "left" ? 'A hand-drawn-style green checkmark overlaid near the top-right corner of this column, like a marker circling the winning choice.' : ""}
+
+RIGHT column, small bold header text reading exactly: "${data.rightLabel}"
+  Directly below that header, bold text reading exactly: "${rightProtein}G PROTEIN · ${rightCals} KCAL"
+  Below that, show one simple, appetising top-down product photo of
+  ${photoSubject(data.rightLabel)}
+  Below the photo, small plain text listing exactly: "${rightList}"
+  ${data.recommendedSide === "right" ? 'A hand-drawn-style green checkmark overlaid near the top-right corner of this column, like a marker circling the winning choice.' : ""}
+
+Below both columns, centered bold text reading exactly: "${data.takeaway}"
+
+${attribution()}
+"${data.leftLabel}" total: ${leftProtein}g protein, ${leftCals} kcal.
+"${data.rightLabel}" total: ${rightProtein}g protein, ${rightCals} kcal. The
+recommended side ("${recommendedLabel}") is the one with the checkmark.
+These are the only numbers allowed to appear on the slide.
+
+${STYLE_GUIDE}`;
+}
+
 function ctaPrompt(data: CtaSlideData, brand: CarouselBrand): string {
   return `Generate one finished, ready-to-post Instagram carousel closing slide,
 portrait 4:5 aspect ratio.
@@ -208,6 +266,8 @@ export function buildSlidePrompt(data: SlideData, brand: CarouselBrand): string 
       return thisOrThatPrompt(data, brand);
     case "day-on-a-plate":
       return dayOnAPlatePrompt(data, brand);
+    case "protein-swap":
+      return proteinSwapPrompt(data, brand);
     case "cta":
       return ctaPrompt(data, brand);
   }

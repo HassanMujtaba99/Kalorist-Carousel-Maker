@@ -2,6 +2,7 @@ import type {
   CarouselState,
   CtaSlideData,
   DayOnAPlateSlideData,
+  ProteinSwapSlideData,
   Slide,
   SlideKind,
   ThisOrThatSlideData,
@@ -20,7 +21,7 @@ export function newId(prefix: string): string {
  * Cover and CTA are fixed and not part of this list. More content types
  * (e.g. "step-by-step") will be added here in the future.
  */
-export const CONTENT_SLIDE_KINDS: SlideKind[] = ["this-or-that", "day-on-a-plate"];
+export const CONTENT_SLIDE_KINDS: SlideKind[] = ["this-or-that", "day-on-a-plate", "protein-swap"];
 
 export function emptyCarousel(): CarouselState {
   return {
@@ -40,6 +41,8 @@ export function slideKindLabel(kind: SlideKind): string {
       return "This or That";
     case "day-on-a-plate":
       return "Day on a Plate";
+    case "protein-swap":
+      return "Protein Swap";
     case "cta":
       return "Save / CTA";
   }
@@ -76,6 +79,19 @@ export function createSlide(kind: SlideKind): Slide {
           { id: newId("section"), label: "Dinner", items: [] },
           { id: newId("section"), label: "Snacks", items: [] },
         ],
+      };
+      return { id, data, status: "idle" };
+    }
+    case "protein-swap": {
+      const data: ProteinSwapSlideData = {
+        kind: "protein-swap",
+        headline: "POV: you just learned to build a better plate",
+        leftLabel: "Less protein",
+        leftItems: [],
+        rightLabel: "More protein",
+        rightItems: [],
+        recommendedSide: "right",
+        takeaway: "Same foods. Protein added first.",
       };
       return { id, data, status: "idle" };
     }

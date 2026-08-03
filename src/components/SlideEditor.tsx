@@ -4,6 +4,7 @@ import type { AppSettings, Slide, SlideData } from "@/lib/types";
 import { TitleSlideEditor } from "./editors/TitleSlideEditor";
 import { ThisOrThatSlideEditor } from "./editors/ThisOrThatSlideEditor";
 import { DayOnAPlateSlideEditor } from "./editors/DayOnAPlateSlideEditor";
+import { ProteinSwapSlideEditor } from "./editors/ProteinSwapSlideEditor";
 import { CtaSlideEditor } from "./editors/CtaSlideEditor";
 
 interface Props {
@@ -31,6 +32,15 @@ export function SlideEditor({ slide, usdaApiKey, settings, onChange }: Props) {
         <DayOnAPlateSlideEditor
           data={slide.data}
           usdaApiKey={usdaApiKey}
+          onChange={onChange}
+        />
+      );
+    case "protein-swap":
+      return (
+        <ProteinSwapSlideEditor
+          data={slide.data}
+          usdaApiKey={usdaApiKey}
+          settings={settings}
           onChange={onChange}
         />
       );
