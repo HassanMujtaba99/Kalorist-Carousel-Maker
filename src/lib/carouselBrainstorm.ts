@@ -1,7 +1,18 @@
-import type { AppSettings, CtaSlideData, Slide, ThisOrThatSlideData, TitleSlideData } from "./types";
+import type { AppSettings, CtaSlideData, FoodItem, Slide, ThisOrThatSlideData, TitleSlideData } from "./types";
 import { newId } from "./carousel";
 import { draftCopy } from "./copyProvider";
 import { searchUsdaFood } from "./usdaClient";
+
+/**
+ * Picks the first USDA search result that actually resolved to a real
+ * calorie figure. `usdaResultToFoodItem` falls back to `calories: 0` when a
+ * result has no usable label/food nutrient data — silently accepting that
+ * as "the" match would put a fake 0-calorie fact on the slide, so those
+ * results are skipped in favor of the next one that has real data.
+ */
+function pickResolvedFood(results: FoodItem[]): FoodItem | null {
+  return results.find((item) => item.calories > 0) ?? null;
+}
 
 function buildCarouselBrainstormPrompt(topic: string, count: number, hasImages: boolean): string {
   const comparisonFields = Array.from({ length: count })
@@ -78,7 +89,7 @@ export interface BrainstormedCarousel {
   cover: Slide;
   content: Slide[];
   cta: Slide;
-  /** Comparisons where a USDA search came back empty, so the slide has no food items yet. */
+  /** Comparisons where neither side resolved to a real USDA calorie figure, so the slide has no food items yet. */
   unresolvedComparisons: string[];
 }
 
@@ -115,16 +126,19 @@ export async function brainstormCarousel(
       searchUsdaFood(comparison.rightQuery, settings.usdaApiKey).catch(() => []),
     ]);
 
-    if (leftResults.length === 0 || rightResults.length === 0) {
+    const leftFood = pickResolvedFood(leftResults);
+    const rightFood = pickResolvedFood(rightResults);
+
+    if (!leftFood || !rightFood) {
       unresolvedComparisons.push(`${comparison.leftQuery} vs ${comparison.rightQuery}`);
     }
 
     const data: ThisOrThatSlideData = {
       kind: "this-or-that",
       leftLabel: comparison.leftLabel,
-      leftItems: leftResults[0] ? [leftResults[0]] : [],
+      leftItems: leftFood ? [leftFood] : [],
       rightLabel: comparison.rightLabel,
-      rightItems: rightResults[0] ? [rightResults[0]] : [],
+      rightItems: rightFood ? [rightFood] : [],
     };
     content.push({ id: newId("slide"), data, status: "idle" });
   }
