@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_MODEL = "claude-sonnet-5";
+const DEFAULT_MAX_TOKENS = 300;
 
 interface AnthropicContentBlock {
   type: string;
@@ -12,8 +13,18 @@ interface AnthropicMessageResponse {
   content?: AnthropicContentBlock[];
 }
 
+type AnthropicMessageContent =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
+
+function dataUrlToAnthropicImageBlock(dataUrl: string): AnthropicMessageContent | null {
+  const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) return null;
+  return { type: "image", source: { type: "base64", media_type: match[1], data: match[2] } };
+}
+
 export async function POST(req: NextRequest) {
-  let body: { prompt?: string; apiKey?: string; model?: string };
+  let body: { prompt?: string; apiKey?: string; model?: string; images?: string[]; maxTokens?: number };
   try {
     body = await req.json();
   } catch {
@@ -23,6 +34,7 @@ export async function POST(req: NextRequest) {
   const apiKey = body.apiKey?.trim();
   const prompt = body.prompt?.trim();
   const model = body.model?.trim() || DEFAULT_MODEL;
+  const maxTokens = body.maxTokens && body.maxTokens > 0 ? body.maxTokens : DEFAULT_MAX_TOKENS;
 
   if (!apiKey) {
     return NextResponse.json(
@@ -33,6 +45,11 @@ export async function POST(req: NextRequest) {
   if (!prompt) {
     return NextResponse.json({ error: "Missing 'prompt'." }, { status: 400 });
   }
+
+  const imageBlocks = (body.images ?? [])
+    .map(dataUrlToAnthropicImageBlock)
+    .filter((b): b is NonNullable<typeof b> => b !== null);
+  const content: AnthropicMessageContent[] = [...imageBlocks, { type: "text", text: prompt }];
 
   let upstream: Response;
   try {
@@ -45,8 +62,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 300,
-        messages: [{ role: "user", content: prompt }],
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content }],
       }),
     });
   } catch {

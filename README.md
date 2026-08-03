@@ -13,6 +13,18 @@ On-slide copy (headlines, labels, CTAs) can optionally be drafted by an AI
 model of your choice — Claude, Gemini, OpenAI, or any other OpenAI-compatible
 API (Groq, Mistral, a local Ollama server, etc) — picked in Settings.
 
+## Brainstorm an entire carousel
+
+On the main builder, "Brainstorm entire carousel" (above the slide list)
+replaces manually entering every headline, food comparison, and CTA
+yourself: give it a topic (and optionally a few reference images for style/
+tone — sent to your chosen copy-provider model if it supports vision), and
+it drafts the whole carousel in one shot. The model only proposes *which*
+real foods to compare — every calorie number it uses still comes from a
+live USDA FoodData Central search per comparison, never from the model
+itself. Review/edit the result like any other slide before generating
+images.
+
 ## Recreate from your own photos
 
 At `/recreate` (linked from the main builder) is an alternate flow for when

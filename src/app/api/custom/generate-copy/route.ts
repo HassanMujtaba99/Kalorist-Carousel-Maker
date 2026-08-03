@@ -8,6 +8,10 @@ interface OpenAIChatResponse {
   choices?: OpenAIChoice[];
 }
 
+type OpenAIMessageContent =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 const BLOCKED_HOSTS = new Set(["localhost", "0.0.0.0", "127.0.0.1", "::1", "169.254.169.254"]);
 
 /**
@@ -34,7 +38,14 @@ function isSafeCustomBaseUrl(raw: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { prompt?: string; apiKey?: string; model?: string; baseUrl?: string };
+  let body: {
+    prompt?: string;
+    apiKey?: string;
+    model?: string;
+    baseUrl?: string;
+    images?: string[];
+    maxTokens?: number;
+  };
   try {
     body = await req.json();
   } catch {
@@ -45,6 +56,7 @@ export async function POST(req: NextRequest) {
   const prompt = body.prompt?.trim();
   const model = body.model?.trim();
   const baseUrl = body.baseUrl?.trim().replace(/\/+$/, "");
+  const maxTokens = body.maxTokens && body.maxTokens > 0 ? body.maxTokens : 300;
 
   if (!baseUrl) {
     return NextResponse.json(
@@ -74,6 +86,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing 'prompt'." }, { status: 400 });
   }
 
+  const images = (body.images ?? []).filter((i) => /^data:[^;]+;base64,/.test(i));
+  const content: OpenAIMessageContent[] = [
+    { type: "text", text: prompt },
+    ...images.map((url): OpenAIMessageContent => ({ type: "image_url", image_url: { url } })),
+  ];
+
   let upstream: Response;
   try {
     upstream = await fetch(`${baseUrl}/chat/completions`, {
@@ -84,8 +102,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 300,
-        messages: [{ role: "user", content: prompt }],
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content: images.length > 0 ? content : prompt }],
       }),
     });
   } catch {

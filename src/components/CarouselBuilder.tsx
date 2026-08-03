@@ -18,10 +18,12 @@ import {
   type CarouselSummary,
 } from "@/lib/carouselsClient";
 import type { Slide, SlideData, SlideKind } from "@/lib/types";
+import type { BrainstormedCarousel } from "@/lib/carouselBrainstorm";
 import { AuthPanel } from "./AuthPanel";
 import { WelcomeGate } from "./WelcomeGate";
 import { SettingsPanel } from "./SettingsPanel";
 import { MyCarouselsPanel } from "./MyCarouselsPanel";
+import { BrainstormPanel } from "./BrainstormPanel";
 import { SlideCard } from "./SlideCard";
 import { AddContentSlideButton } from "./AddContentSlideButton";
 
@@ -180,6 +182,17 @@ export function CarouselBuilder() {
     setSaveStatus("idle");
   };
 
+  const applyBrainstorm = (result: BrainstormedCarousel) => {
+    setCarousel((c) => ({
+      ...c,
+      cover: result.cover,
+      content: result.content,
+      cta: result.cta,
+    }));
+    setActiveCarouselId(null);
+    setSaveStatus("idle");
+  };
+
   const generatedCount = allSlides.filter((s) => s.status === "done").length;
 
   if (sessionPending || !guestLoaded) return null;
@@ -228,6 +241,8 @@ export function CarouselBuilder() {
           onDelete={deleteCarousel}
         />
       )}
+
+      <BrainstormPanel settings={settings} onGenerated={applyBrainstorm} />
 
       <section className="kal-card grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">

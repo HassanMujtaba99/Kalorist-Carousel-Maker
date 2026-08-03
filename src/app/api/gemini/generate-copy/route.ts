@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MAX_TOKENS = 300;
 
 interface GeminiPart {
   text?: string;
@@ -15,8 +16,14 @@ interface GeminiResponse {
   promptFeedback?: { blockReason?: string };
 }
 
+function dataUrlToInlinePart(dataUrl: string): { inlineData: { mimeType: string; data: string } } | null {
+  const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) return null;
+  return { inlineData: { mimeType: match[1], data: match[2] } };
+}
+
 export async function POST(req: NextRequest) {
-  let body: { prompt?: string; apiKey?: string; model?: string };
+  let body: { prompt?: string; apiKey?: string; model?: string; images?: string[]; maxTokens?: number };
   try {
     body = await req.json();
   } catch {
@@ -26,6 +33,7 @@ export async function POST(req: NextRequest) {
   const apiKey = body.apiKey?.trim();
   const prompt = body.prompt?.trim();
   const model = body.model?.trim() || DEFAULT_MODEL;
+  const maxTokens = body.maxTokens && body.maxTokens > 0 ? body.maxTokens : DEFAULT_MAX_TOKENS;
 
   if (!apiKey) {
     return NextResponse.json(
@@ -36,6 +44,10 @@ export async function POST(req: NextRequest) {
   if (!prompt) {
     return NextResponse.json({ error: "Missing 'prompt'." }, { status: 400 });
   }
+
+  const imageParts = (body.images ?? [])
+    .map(dataUrlToInlinePart)
+    .filter((p): p is NonNullable<typeof p> => p !== null);
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
     model
@@ -50,8 +62,8 @@ export async function POST(req: NextRequest) {
         "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 300 },
+        contents: [{ role: "user", parts: [...imageParts, { text: prompt }] }],
+        generationConfig: { maxOutputTokens: maxTokens },
       }),
     });
   } catch {

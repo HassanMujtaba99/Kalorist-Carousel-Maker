@@ -29,21 +29,32 @@ export function activeCopyApiKey(settings: AppSettings): string {
   }
 }
 
+export interface DraftCopyOptions {
+  /** Reference images (data URLs) for providers/models that support vision input. */
+  images?: string[];
+  maxTokens?: number;
+}
+
 /** Drafts copy using whichever provider is selected in Settings. */
-export async function draftCopy(prompt: string, settings: AppSettings): Promise<string> {
+export async function draftCopy(
+  prompt: string,
+  settings: AppSettings,
+  options?: DraftCopyOptions
+): Promise<string> {
   switch (settings.copyProvider) {
     case "anthropic":
-      return draftWithClaude(prompt, settings.anthropicApiKey, settings.anthropicModel);
+      return draftWithClaude(prompt, settings.anthropicApiKey, settings.anthropicModel, options);
     case "gemini":
-      return draftWithGeminiText(prompt, settings.geminiApiKey, settings.geminiCopyModel);
+      return draftWithGeminiText(prompt, settings.geminiApiKey, settings.geminiCopyModel, options);
     case "openai":
-      return draftWithOpenAI(prompt, settings.openaiApiKey, settings.openaiModel);
+      return draftWithOpenAI(prompt, settings.openaiApiKey, settings.openaiModel, options);
     case "custom":
       return draftWithCustom(
         prompt,
         settings.customApiKey,
         settings.customModel,
-        settings.customBaseUrl
+        settings.customBaseUrl,
+        options
       );
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
+const DEFAULT_MAX_TOKENS = 300;
 
 interface OpenAIChoice {
   message?: { content?: string };
@@ -10,8 +11,12 @@ interface OpenAIChatResponse {
   choices?: OpenAIChoice[];
 }
 
+type OpenAIMessageContent =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export async function POST(req: NextRequest) {
-  let body: { prompt?: string; apiKey?: string; model?: string };
+  let body: { prompt?: string; apiKey?: string; model?: string; images?: string[]; maxTokens?: number };
   try {
     body = await req.json();
   } catch {
@@ -21,6 +26,7 @@ export async function POST(req: NextRequest) {
   const apiKey = body.apiKey?.trim();
   const prompt = body.prompt?.trim();
   const model = body.model?.trim() || DEFAULT_MODEL;
+  const maxTokens = body.maxTokens && body.maxTokens > 0 ? body.maxTokens : DEFAULT_MAX_TOKENS;
 
   if (!apiKey) {
     return NextResponse.json(
@@ -32,6 +38,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing 'prompt'." }, { status: 400 });
   }
 
+  const images = (body.images ?? []).filter((i) => /^data:[^;]+;base64,/.test(i));
+  const content: OpenAIMessageContent[] = [
+    { type: "text", text: prompt },
+    ...images.map((url): OpenAIMessageContent => ({ type: "image_url", image_url: { url } })),
+  ];
+
   let upstream: Response;
   try {
     upstream = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -42,8 +54,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model,
-        max_completion_tokens: 300,
-        messages: [{ role: "user", content: prompt }],
+        max_completion_tokens: maxTokens,
+        messages: [{ role: "user", content: images.length > 0 ? content : prompt }],
       }),
     });
   } catch {
