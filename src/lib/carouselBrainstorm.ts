@@ -57,7 +57,11 @@ menu item, or packaged product (not a vague category) since it will be
 looked up in the USDA FoodData Central database for its real calorie count —
 do not invent numbers, only name real foods.
 
-Reply in EXACTLY this format, one field per line, nothing else, no markdown:
+Reply with ONLY the fields below, one per line, in this exact "KEY: value" shape.
+Do not add any preamble, explanation, sign-off, markdown formatting, bullet
+points, asterisks, or code fences — the first character of your reply must
+be "F" from "FORMAT:".
+
 FORMAT: <this-or-that or day-on-a-plate>
 HEADLINE: <cover slide headline, max 12 words>
 CTA: <closing call-to-action line, max 8 words>
@@ -93,12 +97,24 @@ interface ParsedBrainstorm {
   sections: BrainstormSection[];
 }
 
-function extractField(text: string, key: string): string | null {
-  const match = new RegExp(`^${key}:\\s*(.+)$`, "im").exec(text);
-  return match ? match[1].trim() : null;
+/** Strips common markdown noise models add despite being told not to (code
+ * fences, bullet markers, bold/backtick-wrapped keys) before line-matching. */
+function normalizeBrainstormText(text: string): string {
+  return text
+    .replace(/```[a-z]*\n?/gi, "")
+    .split("\n")
+    .map((line) => line.replace(/^[\s>*-]+/, "").trim())
+    .join("\n");
 }
 
-function parseCarouselBrainstorm(text: string, count: number): ParsedBrainstorm | null {
+function extractField(text: string, key: string): string | null {
+  const match = new RegExp(`^\\**${key}\\**\\s*:\\s*(.+)$`, "im").exec(text);
+  if (!match) return null;
+  return match[1].trim().replace(/\*+$/, "").replace(/^["'`]|["'`]$/g, "").trim();
+}
+
+function parseCarouselBrainstorm(rawText: string, count: number): ParsedBrainstorm | null {
+  const text = normalizeBrainstormText(rawText);
   const headline = extractField(text, "HEADLINE");
   const cta = extractField(text, "CTA");
   if (!headline || !cta) return null;
@@ -160,12 +176,17 @@ export async function brainstormCarousel(
   const prompt = buildCarouselBrainstormPrompt(topic, count, images.length > 0);
   const text = await draftCopy(prompt, settings, {
     images: images.length > 0 ? images : undefined,
-    maxTokens: 200 + count * 150,
+    maxTokens: 400 + count * 200,
   });
 
   const parsed = parseCarouselBrainstorm(text, count);
   if (!parsed) {
-    throw new Error("Could not parse the brainstormed content — try again.");
+    const snippet = text.trim().slice(0, 500);
+    throw new Error(
+      `Could not parse the brainstormed content. The model replied:\n\n${snippet}${
+        text.trim().length > 500 ? "…" : ""
+      }`
+    );
   }
 
   const unresolvedComparisons: string[] = [];

@@ -90,7 +90,9 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
             {busy ? "Brainstorming…" : "Brainstorm carousel"}
           </button>
 
-          {error && <p className="text-xs font-semibold text-purple">{error}</p>}
+          {error && (
+            <p className="whitespace-pre-wrap text-xs font-semibold text-purple">{error}</p>
+          )}
           {warning && <p className="text-xs font-semibold text-purple">{warning}</p>}
         </div>
       )}
