@@ -33,6 +33,19 @@ every calorie number it uses still comes from a live USDA FoodData Central
 search, never from the model itself. Review/edit the result like any other
 slide before generating images.
 
+**Target audience region** (optional) steers the brainstorm toward brands and
+dishes actually relevant to that audience — e.g. set it to "Pakistan" to get
+local restaurant chains and regional dishes instead of default American fast
+food. Since USDA FoodData Central is US-centric and often won't carry a
+specific local brand or dish by name, every food the model proposes also
+comes with a plain generic fallback (e.g. "rice and lentils" for a specific
+regional dish); if the exact item isn't found, the app automatically uses the
+generic fallback's real USDA numbers instead of leaving the slide empty. Any
+food resolved this way is clearly marked with a "≈" on its chip (hover for
+"Approximate — closest generic match found, not the exact item") — the
+number is still a real, verified USDA figure, just for a close equivalent
+rather than the exact requested item.
+
 ## Use your own photo as the Cover/CTA background
 
 The Cover and Closing/CTA slide editors have an optional "Background photo"

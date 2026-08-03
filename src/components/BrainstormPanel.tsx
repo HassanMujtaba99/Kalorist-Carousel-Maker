@@ -14,11 +14,13 @@ interface Props {
 export function BrainstormPanel({ settings, onGenerated }: Props) {
   const [open, setOpen] = useState(false);
   const [topic, setTopic] = useState("");
+  const [region, setRegion] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [count, setCount] = useState(3);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const providerLabel = copyProviderLabel(settings.copyProvider);
 
   const run = async () => {
@@ -29,8 +31,9 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
     setBusy(true);
     setError(null);
     setWarning(null);
+    setNotice(null);
     try {
-      const result = await brainstormCarousel(topic, images, count, settings);
+      const result = await brainstormCarousel(topic, images, count, region, settings);
       const warnings: string[] = [];
       if (result.usdaErrorCount > 0) {
         warnings.push(
@@ -43,6 +46,11 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
         );
       }
       if (warnings.length > 0) setWarning(warnings.join(" "));
+      if (result.approximatedItems.length > 0) {
+        setNotice(
+          `USDA didn't have data for the exact item on ${result.approximatedItems.length} pick${result.approximatedItems.length === 1 ? "" : "s"}, so a generic equivalent's real numbers were used instead (marked ≈ on the food chip): ${result.approximatedItems.join(", ")}.`
+        );
+      }
       onGenerated(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Brainstorm failed");
@@ -65,7 +73,7 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
       {open && (
         <div className="space-y-4 border-t-2 border-ink px-4 py-4">
           <p className="text-sm text-ink/60">
-            {`Type a topic, attach reference images from an earlier post, or both. If you attach images, ${providerLabel} treats them as "Part 1" of the series and brainstorms the next installment — same theme, same format (this-or-that or day-on-a-plate, whichever they show) — without repeating what's already in them. Every calorie number is still a real, live USDA FoodData Central lookup, never invented by the model.`}
+            {`Type a topic, attach reference images from an earlier post, or both. If you attach images, ${providerLabel} treats them as "Part 1" of the series and brainstorms the next installment — same theme, same format (this-or-that or day-on-a-plate, whichever they show) — without repeating what's already in them. Set a target region to get locally relevant brands and dishes instead of default American ones. Every calorie number is still a real, live USDA FoodData Central lookup — if the exact item isn't in USDA's (US-centric) database, a close generic equivalent's real numbers are used instead, clearly marked, never invented by the model.`}
           </p>
 
           <label className="block text-sm">
@@ -81,17 +89,30 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
 
           <ReferenceImagesUpload images={images} onChange={setImages} />
 
-          <label className="block max-w-[14rem] text-sm">
-            <span className="kal-label">Number of comparisons / plate sections</span>
-            <input
-              type="number"
-              min={1}
-              max={6}
-              value={count}
-              onChange={(e) => setCount(Math.min(6, Math.max(1, Number(e.target.value) || 1)))}
-              className="kal-input"
-            />
-          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="kal-label">Target audience region (optional)</span>
+              <input
+                type="text"
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                placeholder="e.g. Pakistan, UK — blank for global"
+                className="kal-input"
+              />
+            </label>
+
+            <label className="block text-sm">
+              <span className="kal-label">Number of comparisons / plate sections</span>
+              <input
+                type="number"
+                min={1}
+                max={6}
+                value={count}
+                onChange={(e) => setCount(Math.min(6, Math.max(1, Number(e.target.value) || 1)))}
+                className="kal-input"
+              />
+            </label>
+          </div>
 
           <button type="button" onClick={run} disabled={busy} className="kal-btn-primary">
             {busy ? "Brainstorming…" : "Brainstorm carousel"}
@@ -101,6 +122,7 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
             <p className="whitespace-pre-wrap text-xs font-semibold text-purple">{error}</p>
           )}
           {warning && <p className="text-xs font-semibold text-purple">{warning}</p>}
+          {notice && <p className="text-xs font-semibold text-ink/60">{notice}</p>}
         </div>
       )}
     </div>

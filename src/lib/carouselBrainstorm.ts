@@ -32,6 +32,18 @@ function simplifyFoodQuery(query: string): string | null {
   return cut.length > 0 && cut.toLowerCase() !== query.trim().toLowerCase() ? cut : null;
 }
 
+/** A USDA search that swallows its own errors — used for best-effort
+ * fallback attempts where the primary attempt already told us whether USDA
+ * itself is reachable, so a fallback-specific error shouldn't change the
+ * outcome. */
+async function trySearch(query: string, apiKey: string): Promise<FoodItem | null> {
+  try {
+    return pickResolvedFood(await searchUsdaFood(query, apiKey));
+  } catch {
+    return null;
+  }
+}
+
 interface FoodResolution {
   food: FoodItem | null;
   /** Set when the USDA search itself failed (network/rate-limit/bad key) —
@@ -40,27 +52,45 @@ interface FoodResolution {
   error: string | null;
 }
 
-/** Resolves one food query to a real USDA-backed FoodItem, retrying once
- * with a simplified query if the first search comes up empty. */
-async function resolveFood(query: string, apiKey: string): Promise<FoodResolution> {
-  let results: FoodItem[];
+/**
+ * Resolves one food query to a real USDA-backed FoodItem. Tries, in order:
+ * the exact query, a clause-simplified version of it, then — if provided —
+ * a generic equivalent (e.g. "cheeseburger" for "McDonald's Cheeseburger")
+ * and a simplified version of that. A match found via the generic fallback
+ * is flagged `approximated` so the UI can be upfront that it's a close
+ * stand-in, not the exact requested item — the number itself is still a
+ * real, verified USDA figure the whole way through.
+ */
+async function resolveFood(
+  query: string,
+  genericQuery: string | null,
+  apiKey: string
+): Promise<FoodResolution> {
+  let primaryResults: FoodItem[];
   try {
-    results = await searchUsdaFood(query, apiKey);
+    primaryResults = await searchUsdaFood(query, apiKey);
   } catch (e) {
     return { food: null, error: e instanceof Error ? e.message : "USDA search failed" };
   }
 
-  const food = pickResolvedFood(results);
-  if (food) return { food, error: null };
+  const direct = pickResolvedFood(primaryResults);
+  if (direct) return { food: direct, error: null };
 
   const simplified = simplifyFoodQuery(query);
   if (simplified) {
-    try {
-      const retryFood = pickResolvedFood(await searchUsdaFood(simplified, apiKey));
-      if (retryFood) return { food: retryFood, error: null };
-    } catch {
-      // Best-effort retry — an error here doesn't change the outcome, the
-      // original attempt already succeeded (just with no match).
+    const food = await trySearch(simplified, apiKey);
+    if (food) return { food, error: null };
+  }
+
+  const generic = genericQuery?.trim();
+  if (generic && generic.toLowerCase() !== query.trim().toLowerCase()) {
+    const food = await trySearch(generic, apiKey);
+    if (food) return { food: { ...food, approximated: true }, error: null };
+
+    const simplifiedGeneric = simplifyFoodQuery(generic);
+    if (simplifiedGeneric) {
+      const fallbackFood = await trySearch(simplifiedGeneric, apiKey);
+      if (fallbackFood) return { food: { ...fallbackFood, approximated: true }, error: null };
     }
   }
 
@@ -72,13 +102,23 @@ type BrainstormFormat = "this-or-that" | "day-on-a-plate";
 function buildCarouselBrainstormPrompt(
   topic: string,
   count: number,
-  hasImages: boolean
+  hasImages: boolean,
+  region: string
 ): string {
+  const hasRegion = region.trim().length > 0;
   return `You are brainstorming content for a nutrition-education Instagram carousel post
 aimed at a fitness/nutrition coaching audience. Voice: energetic, evidence-based,
 no hashtags, no emoji, no quotation marks in your output.
 
 Topic/niche: "${topic || (hasImages ? "infer it from the attached reference image(s)" : "a general nutrition tip for a broad audience")}"
+Target audience region: ${hasRegion ? region.trim() : "global — no specific region, use widely recognizable examples"}
+${
+  hasRegion
+    ? `Prefer real food brands, restaurant chains, and dishes that are actually
+popular and available in ${region.trim()} over generic American examples, so
+this feels locally relevant to that audience.`
+    : ""
+}
 ${
   hasImages
     ? `Reference image(s) of an EARLIER post in this same carousel series ("Part 1") are
@@ -96,7 +136,7 @@ First decide the FORMAT for this post${hasImages ? " (matching the reference ima
 - "day-on-a-plate": one slide showing several meals/snacks across a day (breakfast, lunch, dinner, snacks, etc.)
 ${hasImages ? "" : 'Default to "this-or-that" unless the topic clearly calls for a full day of meals.'}
 
-Each food query below MUST be a real, well-known food or menu item, written
+Each food QUERY below MUST be a real, well-known food or menu item, written
 as a SHORT, searchable name (2-5 words) the way it would appear on a
 nutrition label — e.g. "Big Mac", "grilled chicken sandwich", "blueberry
 muffin", "chocolate milkshake". Do NOT add descriptive clauses like "with
@@ -104,7 +144,15 @@ brown rice, black beans, and salsa" or "on whole wheat" — those hurt the
 database search and are not allowed. A restaurant/brand name is fine only
 when it's part of the item's actual product name (e.g. "Big Mac"); otherwise
 keep it generic. It will be looked up in the USDA FoodData Central database
-for its real calorie count — do not invent numbers, only name real foods.
+(which is US-centric and may not carry local/regional brands or dishes) for
+its real calorie count — do not invent numbers, only name real foods.
+
+Every QUERY must be paired with a GENERIC fallback: a plain, widely-known
+equivalent food (no brand name, no region-specific name) that the database
+is likely to have, to use if the specific item isn't found — e.g. GENERIC
+"cheeseburger" for QUERY "McDonald's Cheeseburger", or GENERIC "fried
+chicken sandwich" for a local chain's fried chicken burger, or GENERIC
+"rice and lentils" for a regional dish the database may not carry by name.
 
 Reply with ONLY the fields below, one per line, in this exact "KEY: value" shape.
 Do not add any preamble, explanation, sign-off, markdown formatting, bullet
@@ -117,25 +165,31 @@ CTA: <closing call-to-action line, max 8 words>
 
 If FORMAT is this-or-that, follow with exactly ${count} of these blocks (COMPARISON_1 through COMPARISON_${count}):
 COMPARISON_N_LEFT_QUERY: <a real, specific, searchable food or menu item name>
+COMPARISON_N_LEFT_GENERIC: <plain generic fallback name for that food>
 COMPARISON_N_LEFT_LABEL: <punchy 2-4 word label for this side>
 COMPARISON_N_RIGHT_QUERY: <a real, specific, searchable food or menu item name>
+COMPARISON_N_RIGHT_GENERIC: <plain generic fallback name for that food>
 COMPARISON_N_RIGHT_LABEL: <punchy 2-4 word label for this side>
 
 If FORMAT is day-on-a-plate, instead follow with exactly ${count} of these blocks (SECTION_1 through SECTION_${count}):
 SECTION_N_LABEL: <meal label, e.g. Breakfast>
-SECTION_N_QUERY: <a real, specific, searchable food or menu item name for that meal>`;
+SECTION_N_QUERY: <a real, specific, searchable food or menu item name for that meal>
+SECTION_N_GENERIC: <plain generic fallback name for that food>`;
 }
 
 interface BrainstormComparison {
   leftQuery: string;
+  leftGeneric: string | null;
   leftLabel: string;
   rightQuery: string;
+  rightGeneric: string | null;
   rightLabel: string;
 }
 
 interface BrainstormSection {
   label: string;
   query: string;
+  generic: string | null;
 }
 
 interface ParsedBrainstorm {
@@ -178,8 +232,9 @@ function parseCarouselBrainstorm(rawText: string, count: number): ParsedBrainsto
     for (let i = 1; i <= count; i++) {
       const label = extractField(text, `SECTION_${i}_LABEL`);
       const query = extractField(text, `SECTION_${i}_QUERY`);
+      const generic = extractField(text, `SECTION_${i}_GENERIC`);
       if (!label || !query) continue;
-      sections.push({ label, query });
+      sections.push({ label, query, generic });
     }
     if (sections.length === 0) return null;
     return { format, headline, cta, comparisons: [], sections };
@@ -188,11 +243,13 @@ function parseCarouselBrainstorm(rawText: string, count: number): ParsedBrainsto
   const comparisons: BrainstormComparison[] = [];
   for (let i = 1; i <= count; i++) {
     const leftQuery = extractField(text, `COMPARISON_${i}_LEFT_QUERY`);
+    const leftGeneric = extractField(text, `COMPARISON_${i}_LEFT_GENERIC`);
     const leftLabel = extractField(text, `COMPARISON_${i}_LEFT_LABEL`);
     const rightQuery = extractField(text, `COMPARISON_${i}_RIGHT_QUERY`);
+    const rightGeneric = extractField(text, `COMPARISON_${i}_RIGHT_GENERIC`);
     const rightLabel = extractField(text, `COMPARISON_${i}_RIGHT_LABEL`);
     if (!leftQuery || !leftLabel || !rightQuery || !rightLabel) continue;
-    comparisons.push({ leftQuery, leftLabel, rightQuery, rightLabel });
+    comparisons.push({ leftQuery, leftGeneric, leftLabel, rightQuery, rightGeneric, rightLabel });
   }
   if (comparisons.length === 0) return null;
 
@@ -209,6 +266,8 @@ export interface BrainstormedCarousel {
   usdaErrorCount: number;
   /** One representative USDA error message, for surfacing what actually went wrong. */
   usdaErrorSample: string | null;
+  /** Specific foods that weren't found and were substituted with a generic equivalent instead ("McDonald's Cheeseburger → cheeseburger"). */
+  approximatedItems: string[];
 }
 
 /**
@@ -218,18 +277,21 @@ export interface BrainstormedCarousel {
  * treated as an earlier "Part 1" post in the same series), plus a closing
  * CTA. The AI only proposes *which* real foods to use (as search queries) —
  * every calorie number still comes from an actual USDA FoodData Central
- * lookup, never from the model itself.
+ * lookup, never from the model itself. If a specific brand/item isn't in
+ * USDA's database, a generic equivalent it also proposed is used instead
+ * (flagged as approximated), rather than leaving the slide empty.
  */
 export async function brainstormCarousel(
   topic: string,
   images: string[],
   count: number,
+  region: string,
   settings: AppSettings
 ): Promise<BrainstormedCarousel> {
-  const prompt = buildCarouselBrainstormPrompt(topic, count, images.length > 0);
+  const prompt = buildCarouselBrainstormPrompt(topic, count, images.length > 0, region);
   const text = await draftCopy(prompt, settings, {
     images: images.length > 0 ? images : undefined,
-    maxTokens: 400 + count * 200,
+    maxTokens: 500 + count * 260,
   });
 
   const parsed = parseCarouselBrainstorm(text, count);
@@ -244,16 +306,24 @@ export async function brainstormCarousel(
 
   const unresolvedComparisons: string[] = [];
   const usdaErrors: string[] = [];
+  const approximatedItems: string[] = [];
   const content: Slide[] = [];
   let totalQueries = 0;
+
+  const track = (query: string, generic: string | null, res: FoodResolution) => {
+    if (res.food?.approximated && generic) approximatedItems.push(`${query} → ${generic}`);
+  };
 
   if (parsed.format === "day-on-a-plate") {
     totalQueries = parsed.sections.length;
     const resolutions = await Promise.all(
-      parsed.sections.map((section) => resolveFood(section.query, settings.usdaApiKey))
+      parsed.sections.map((section) =>
+        resolveFood(section.query, section.generic, settings.usdaApiKey)
+      )
     );
     const sections: PlateSection[] = parsed.sections.map((section, i) => {
       const { food, error } = resolutions[i];
+      track(section.query, section.generic, resolutions[i]);
       if (error) {
         usdaErrors.push(error);
       } else if (!food) {
@@ -267,9 +337,11 @@ export async function brainstormCarousel(
     totalQueries = parsed.comparisons.length * 2;
     for (const comparison of parsed.comparisons) {
       const [leftRes, rightRes] = await Promise.all([
-        resolveFood(comparison.leftQuery, settings.usdaApiKey),
-        resolveFood(comparison.rightQuery, settings.usdaApiKey),
+        resolveFood(comparison.leftQuery, comparison.leftGeneric, settings.usdaApiKey),
+        resolveFood(comparison.rightQuery, comparison.rightGeneric, settings.usdaApiKey),
       ]);
+      track(comparison.leftQuery, comparison.leftGeneric, leftRes);
+      track(comparison.rightQuery, comparison.rightGeneric, rightRes);
 
       if (leftRes.error) usdaErrors.push(leftRes.error);
       if (rightRes.error) usdaErrors.push(rightRes.error);
@@ -312,5 +384,6 @@ export async function brainstormCarousel(
     unresolvedComparisons,
     usdaErrorCount: usdaErrors.length,
     usdaErrorSample: usdaErrors[0] ?? null,
+    approximatedItems,
   };
 }

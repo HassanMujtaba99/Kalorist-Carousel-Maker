@@ -10,6 +10,11 @@ export interface FoodItem {
   fdcId?: number;
   dataType?: string;
   source: FoodSource;
+  /** True when this is a generic stand-in USDA couldn't find data for the
+   * originally requested specific food/brand (e.g. a plain "cheeseburger"
+   * substituted for "McDonald's Cheeseburger") — the number is still a real,
+   * verified USDA figure, just for a close equivalent, not the exact item. */
+  approximated?: boolean;
 }
 
 export interface TitleSlideData {
