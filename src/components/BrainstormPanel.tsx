@@ -31,11 +31,18 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
     setWarning(null);
     try {
       const result = await brainstormCarousel(topic, images, count, settings);
+      const warnings: string[] = [];
+      if (result.usdaErrorCount > 0) {
+        warnings.push(
+          `${result.usdaErrorCount} food lookup${result.usdaErrorCount === 1 ? "" : "s"} failed because the USDA API itself errored (${result.usdaErrorSample}) — not because the data doesn't exist. If you're on the shared demo USDA key, add your own free one in Settings (api.data.gov/signup) and regenerate.`
+        );
+      }
       if (result.unresolvedComparisons.length > 0) {
-        setWarning(
+        warnings.push(
           `Couldn't find USDA data for: ${result.unresolvedComparisons.join(", ")} — those slides were still added, just review/replace the food picks before generating.`
         );
       }
+      if (warnings.length > 0) setWarning(warnings.join(" "));
       onGenerated(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Brainstorm failed");

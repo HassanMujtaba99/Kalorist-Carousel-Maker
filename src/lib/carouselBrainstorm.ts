@@ -23,6 +23,50 @@ function pickResolvedFood(results: FoodItem[]): FoodItem | null {
   return results.find((item) => item.calories > 0) ?? null;
 }
 
+/** Cuts a query at its first descriptive clause (", ...", " with ...", " on
+ * ...", " in ...", " (...") — those clauses hurt USDA's text search and a
+ * shorter core name often matches where the full phrase doesn't. Returns
+ * null if there's no clause to strip (nothing more to try). */
+function simplifyFoodQuery(query: string): string | null {
+  const cut = query.split(/,| with | on | in | \(/i)[0].trim();
+  return cut.length > 0 && cut.toLowerCase() !== query.trim().toLowerCase() ? cut : null;
+}
+
+interface FoodResolution {
+  food: FoodItem | null;
+  /** Set when the USDA search itself failed (network/rate-limit/bad key) —
+   * distinct from a search that succeeded but had no usable match, so the
+   * two failure modes aren't reported to the user as the same thing. */
+  error: string | null;
+}
+
+/** Resolves one food query to a real USDA-backed FoodItem, retrying once
+ * with a simplified query if the first search comes up empty. */
+async function resolveFood(query: string, apiKey: string): Promise<FoodResolution> {
+  let results: FoodItem[];
+  try {
+    results = await searchUsdaFood(query, apiKey);
+  } catch (e) {
+    return { food: null, error: e instanceof Error ? e.message : "USDA search failed" };
+  }
+
+  const food = pickResolvedFood(results);
+  if (food) return { food, error: null };
+
+  const simplified = simplifyFoodQuery(query);
+  if (simplified) {
+    try {
+      const retryFood = pickResolvedFood(await searchUsdaFood(simplified, apiKey));
+      if (retryFood) return { food: retryFood, error: null };
+    } catch {
+      // Best-effort retry — an error here doesn't change the outcome, the
+      // original attempt already succeeded (just with no match).
+    }
+  }
+
+  return { food: null, error: null };
+}
+
 type BrainstormFormat = "this-or-that" | "day-on-a-plate";
 
 function buildCarouselBrainstormPrompt(
@@ -52,10 +96,15 @@ First decide the FORMAT for this post${hasImages ? " (matching the reference ima
 - "day-on-a-plate": one slide showing several meals/snacks across a day (breakfast, lunch, dinner, snacks, etc.)
 ${hasImages ? "" : 'Default to "this-or-that" unless the topic clearly calls for a full day of meals.'}
 
-Each food query below MUST be a real, specific, well-known food, restaurant
-menu item, or packaged product (not a vague category) since it will be
-looked up in the USDA FoodData Central database for its real calorie count —
-do not invent numbers, only name real foods.
+Each food query below MUST be a real, well-known food or menu item, written
+as a SHORT, searchable name (2-5 words) the way it would appear on a
+nutrition label — e.g. "Big Mac", "grilled chicken sandwich", "blueberry
+muffin", "chocolate milkshake". Do NOT add descriptive clauses like "with
+brown rice, black beans, and salsa" or "on whole wheat" — those hurt the
+database search and are not allowed. A restaurant/brand name is fine only
+when it's part of the item's actual product name (e.g. "Big Mac"); otherwise
+keep it generic. It will be looked up in the USDA FoodData Central database
+for its real calorie count — do not invent numbers, only name real foods.
 
 Reply with ONLY the fields below, one per line, in this exact "KEY: value" shape.
 Do not add any preamble, explanation, sign-off, markdown formatting, bullet
@@ -154,8 +203,12 @@ export interface BrainstormedCarousel {
   cover: Slide;
   content: Slide[];
   cta: Slide;
-  /** Comparisons/sections where no side resolved to a real USDA calorie figure, so they have no food items yet. */
+  /** Comparisons/sections where USDA search succeeded but had no usable match, so they have no food items yet. */
   unresolvedComparisons: string[];
+  /** How many individual food lookups failed because the USDA search itself errored (network/rate-limit/bad key) — distinct from a genuine no-match. */
+  usdaErrorCount: number;
+  /** One representative USDA error message, for surfacing what actually went wrong. */
+  usdaErrorSample: string | null;
 }
 
 /**
@@ -190,44 +243,55 @@ export async function brainstormCarousel(
   }
 
   const unresolvedComparisons: string[] = [];
+  const usdaErrors: string[] = [];
   const content: Slide[] = [];
+  let totalQueries = 0;
 
   if (parsed.format === "day-on-a-plate") {
-    const results = await Promise.all(
-      parsed.sections.map((section) =>
-        searchUsdaFood(section.query, settings.usdaApiKey).catch(() => [])
-      )
+    totalQueries = parsed.sections.length;
+    const resolutions = await Promise.all(
+      parsed.sections.map((section) => resolveFood(section.query, settings.usdaApiKey))
     );
     const sections: PlateSection[] = parsed.sections.map((section, i) => {
-      const food = pickResolvedFood(results[i]);
-      if (!food) unresolvedComparisons.push(`${section.label}: ${section.query}`);
+      const { food, error } = resolutions[i];
+      if (error) {
+        usdaErrors.push(error);
+      } else if (!food) {
+        unresolvedComparisons.push(`${section.label}: ${section.query}`);
+      }
       return { id: newId("section"), label: section.label, items: food ? [food] : [] };
     });
     const data: DayOnAPlateSlideData = { kind: "day-on-a-plate", sections };
     content.push({ id: newId("slide"), data, status: "idle" });
   } else {
+    totalQueries = parsed.comparisons.length * 2;
     for (const comparison of parsed.comparisons) {
-      const [leftResults, rightResults] = await Promise.all([
-        searchUsdaFood(comparison.leftQuery, settings.usdaApiKey).catch(() => []),
-        searchUsdaFood(comparison.rightQuery, settings.usdaApiKey).catch(() => []),
+      const [leftRes, rightRes] = await Promise.all([
+        resolveFood(comparison.leftQuery, settings.usdaApiKey),
+        resolveFood(comparison.rightQuery, settings.usdaApiKey),
       ]);
 
-      const leftFood = pickResolvedFood(leftResults);
-      const rightFood = pickResolvedFood(rightResults);
-
-      if (!leftFood || !rightFood) {
+      if (leftRes.error) usdaErrors.push(leftRes.error);
+      if (rightRes.error) usdaErrors.push(rightRes.error);
+      if (!leftRes.error && !rightRes.error && (!leftRes.food || !rightRes.food)) {
         unresolvedComparisons.push(`${comparison.leftQuery} vs ${comparison.rightQuery}`);
       }
 
       const data: ThisOrThatSlideData = {
         kind: "this-or-that",
         leftLabel: comparison.leftLabel,
-        leftItems: leftFood ? [leftFood] : [],
+        leftItems: leftRes.food ? [leftRes.food] : [],
         rightLabel: comparison.rightLabel,
-        rightItems: rightFood ? [rightFood] : [],
+        rightItems: rightRes.food ? [rightRes.food] : [],
       };
       content.push({ id: newId("slide"), data, status: "idle" });
     }
+  }
+
+  if (usdaErrors.length > 0 && usdaErrors.length === totalQueries) {
+    throw new Error(
+      `USDA FoodData Central couldn't be reached for any of the ${totalQueries} food lookups (${usdaErrors[0]}). This usually means the shared demo USDA key has hit its rate limit — add your own free key at api.data.gov/signup in Settings and try again.`
+    );
   }
 
   const coverData: TitleSlideData = {
@@ -246,5 +310,7 @@ export async function brainstormCarousel(
     content,
     cta: { id: newId("slide"), data: ctaData, status: "idle" },
     unresolvedComparisons,
+    usdaErrorCount: usdaErrors.length,
+    usdaErrorSample: usdaErrors[0] ?? null,
   };
 }
