@@ -9,6 +9,7 @@ interface GeminiPart {
 
 interface GeminiCandidate {
   content?: { parts?: GeminiPart[] };
+  finishReason?: string;
 }
 
 interface GeminiResponse {
@@ -53,6 +54,20 @@ export async function POST(req: NextRequest) {
     model
   )}:generateContent`;
 
+  // Gemini 2.5 models think by default, and maxOutputTokens covers hidden
+  // reasoning tokens AND the visible answer combined — a model that spends
+  // most of the budget "thinking" can cut the visible text off mid-word even
+  // with a generous-looking limit. Flash/Flash-Lite support disabling
+  // thinking outright (budget 0); Pro requires a nonzero budget, so it just
+  // gets a larger ceiling to leave room for both.
+  const isFlashFamily = /flash/i.test(model);
+  const generationConfig: Record<string, unknown> = {
+    maxOutputTokens: isFlashFamily ? maxTokens : maxTokens + 2000,
+  };
+  if (isFlashFamily) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
+
   let upstream: Response;
   try {
     upstream = await fetch(url, {
@@ -63,7 +78,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [...imageParts, { text: prompt }] }],
-        generationConfig: { maxOutputTokens: maxTokens },
+        generationConfig,
       }),
     });
   } catch {
@@ -105,6 +120,16 @@ export async function POST(req: NextRequest) {
   if (!text) {
     return NextResponse.json(
       { error: "Gemini did not return any text. Try again." },
+      { status: 502 }
+    );
+  }
+
+  if (data.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+    return NextResponse.json(
+      {
+        error:
+          "Gemini's reply was cut off before finishing (hit the token limit, likely spent on internal reasoning) — try again, or reduce the number of comparisons/sections.",
+      },
       { status: 502 }
     );
   }
