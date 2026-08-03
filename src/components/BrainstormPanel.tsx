@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import type { AppSettings } from "@/lib/types";
-import { brainstormCarousel, type BrainstormedCarousel } from "@/lib/carouselBrainstorm";
+import {
+  brainstormCarousel,
+  BRAINSTORM_FORMATS,
+  type BrainstormedCarousel,
+  type BrainstormFormat,
+} from "@/lib/carouselBrainstorm";
 import { activeCopyApiKey, copyProviderLabel } from "@/lib/copyProvider";
 import { ReferenceImagesUpload } from "./ReferenceImagesUpload";
 
@@ -16,6 +21,7 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
   const [topic, setTopic] = useState("");
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
+  const [format, setFormat] = useState<BrainstormFormat | "auto">("auto");
   const [images, setImages] = useState<string[]>([]);
   const [count, setCount] = useState(3);
   const [busy, setBusy] = useState(false);
@@ -34,7 +40,15 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
     setWarning(null);
     setNotice(null);
     try {
-      const result = await brainstormCarousel(topic, images, count, region, city, settings);
+      const result = await brainstormCarousel(
+        topic,
+        images,
+        count,
+        region,
+        city,
+        format === "auto" ? null : format,
+        settings
+      );
       const warnings: string[] = [];
       if (result.usdaErrorCount > 0) {
         warnings.push(
@@ -74,7 +88,7 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
       {open && (
         <div className="space-y-4 border-t-2 border-ink px-4 py-4">
           <p className="text-sm text-ink/60">
-            {`Type a topic, attach reference images from an earlier post, or both. If you attach images, ${providerLabel} treats them as "Part 1" of the series and brainstorms the next installment — same theme, same format (this-or-that, day-on-a-plate, or protein-swap, whichever they show) — without repeating what's already in them. Set a target region (and optionally a city) to get brands and dishes actually local to that audience — not just international chains that happen to have a branch there. Every calorie number is still a real, live USDA FoodData Central lookup — if the exact local item isn't in USDA's (US-centric) database, a close generic equivalent's real numbers are used instead, clearly marked, never invented by the model.`}
+            {`Type a topic, attach reference images from an earlier post, or both. If you attach images, ${providerLabel} treats them as "Part 1" of the series and brainstorms the next installment — same theme, same format, whichever they show — without repeating what's already in them. Pick a content format below or leave it on "Let AI decide" to infer it from your topic/images (it otherwise defaults to This or That). Set a target region (and optionally a city) to get brands and dishes actually local to that audience — not just international chains that happen to have a branch there. Every calorie number is still a real, live USDA FoodData Central lookup — if the exact local item isn't in USDA's (US-centric) database, a close generic equivalent's real numbers are used instead, clearly marked, never invented by the model.`}
           </p>
 
           <label className="block text-sm">
@@ -89,6 +103,29 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
           </label>
 
           <ReferenceImagesUpload images={images} onChange={setImages} />
+
+          <div>
+            <span className="kal-label">Content format</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setFormat("auto")}
+                className={format === "auto" ? "kal-pill" : "kal-btn-ghost"}
+              >
+                Let AI decide
+              </button>
+              {BRAINSTORM_FORMATS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFormat(f.id)}
+                  className={format === f.id ? "kal-pill" : "kal-btn-ghost"}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm">
@@ -119,17 +156,19 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
               </label>
             )}
 
-            <label className="block text-sm">
-              <span className="kal-label">Number of comparisons / plate sections</span>
-              <input
-                type="number"
-                min={1}
-                max={6}
-                value={count}
-                onChange={(e) => setCount(Math.min(6, Math.max(1, Number(e.target.value) || 1)))}
-                className="kal-input"
-              />
-            </label>
+            {format !== "protein-swap" && (
+              <label className="block text-sm">
+                <span className="kal-label">Number of comparisons / plate sections</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={6}
+                  value={count}
+                  onChange={(e) => setCount(Math.min(6, Math.max(1, Number(e.target.value) || 1)))}
+                  className="kal-input"
+                />
+              </label>
+            )}
           </div>
 
           <button type="button" onClick={run} disabled={busy} className="kal-btn-primary">

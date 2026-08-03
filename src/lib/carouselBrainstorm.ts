@@ -103,14 +103,21 @@ async function resolveFood(
   return { food: null, error: null };
 }
 
-type BrainstormFormat = "this-or-that" | "day-on-a-plate" | "protein-swap";
+export type BrainstormFormat = "this-or-that" | "day-on-a-plate" | "protein-swap";
+
+export const BRAINSTORM_FORMATS: { id: BrainstormFormat; label: string }[] = [
+  { id: "this-or-that", label: "This or That" },
+  { id: "day-on-a-plate", label: "Day on a Plate" },
+  { id: "protein-swap", label: "Protein Swap" },
+];
 
 function buildCarouselBrainstormPrompt(
   topic: string,
   count: number,
   hasImages: boolean,
   region: string,
-  city: string
+  city: string,
+  forcedFormat: BrainstormFormat | null
 ): string {
   const hasRegion = region.trim().length > 0;
   const hasCity = hasRegion && city.trim().length > 0;
@@ -147,11 +154,17 @@ fresh follow-up post, not a copy of what's shown.`
     : ""
 }
 
-First decide the FORMAT for this post${hasImages ? " (matching the reference image(s) if attached)" : ""}:
+${
+  forcedFormat
+    ? `The FORMAT for this post is fixed: "${forcedFormat}". Do not choose a
+different format, even if the topic or reference images seem to suggest
+one — follow the FORMAT below regardless.`
+    : `First decide the FORMAT for this post${hasImages ? " (matching the reference image(s) if attached)" : ""}:
 - "this-or-that": head-to-head comparisons of two options per slide, ideally two competing real restaurant/brand items against each other
 - "day-on-a-plate": one slide showing several meals/snacks across a day (breakfast, lunch, dinner, snacks, etc.)
 - "protein-swap": one slide showing the SAME kind of meal two ways — a lower-protein version and a higher-protein version, each a short list of real foods — to show how swapping in protein-rich items upgrades a familiar plate
-${hasImages ? "" : 'Default to "this-or-that" unless the topic clearly calls for a full day of meals or a before/after protein upgrade.'}
+${hasImages ? "" : 'Default to "this-or-that" unless the topic clearly calls for a full day of meals or a before/after protein upgrade.'}`
+}
 
 Each food QUERY below should name a REAL restaurant/brand's actual menu item
 by name whenever one exists — e.g. "<Brand> <Product>" style naming, the
@@ -190,7 +203,7 @@ Do not add any preamble, explanation, sign-off, markdown formatting, bullet
 points, asterisks, or code fences — the first character of your reply must
 be "F" from "FORMAT:".
 
-FORMAT: <this-or-that, day-on-a-plate, or protein-swap>
+FORMAT: <${forcedFormat ? forcedFormat : "this-or-that, day-on-a-plate, or protein-swap"}>
 HEADLINE: <cover slide headline, max 12 words>
 CTA: <closing call-to-action line, max 8 words>
 
@@ -287,19 +300,27 @@ function extractFoodQueryList(text: string, prefix: string): BrainstormFoodQuery
   return items;
 }
 
-function parseCarouselBrainstorm(rawText: string, count: number): ParsedBrainstorm | null {
+function parseCarouselBrainstorm(
+  rawText: string,
+  count: number,
+  forcedFormat: BrainstormFormat | null
+): ParsedBrainstorm | null {
   const text = normalizeBrainstormText(rawText);
   const headline = extractField(text, "HEADLINE");
   const cta = extractField(text, "CTA");
   if (!headline || !cta) return null;
 
+  // When a format was forced, it's authoritative — trust it over whatever
+  // the model echoed back in its own FORMAT line, so an off-script reply
+  // there can't accidentally steer which fields get parsed.
   const formatRaw = extractField(text, "FORMAT")?.trim().toLowerCase();
   const format: BrainstormFormat =
-    formatRaw === "day-on-a-plate"
+    forcedFormat ??
+    (formatRaw === "day-on-a-plate"
       ? "day-on-a-plate"
       : formatRaw === "protein-swap"
         ? "protein-swap"
-        : "this-or-that";
+        : "this-or-that");
 
   if (format === "protein-swap") {
     const swapHeadline = extractField(text, "PROTEIN_SWAP_HEADLINE");
@@ -380,14 +401,15 @@ export interface BrainstormedCarousel {
  * Brainstorms a full carousel's worth of content in one shot: a cover
  * headline, a middle content slide in one of three formats — `count` "this
  * or that" comparisons, a "day on a plate" grid, or a "protein swap"
- * before/after meal comparison — (format inferred from the topic and, if
- * attached, from reference images treated as an earlier "Part 1" post in
- * the same series), plus a closing CTA. The AI only proposes *which* real
- * foods to use (as search queries) — every calorie/protein number still
- * comes from an actual USDA FoodData Central lookup, never from the model
- * itself. If a specific brand/item isn't in USDA's database, a generic
- * equivalent it also proposed is used instead (flagged as approximated),
- * rather than leaving the slide empty.
+ * before/after meal comparison — plus a closing CTA. `format` pins the
+ * content-slide format explicitly; pass `null` to let the model infer it
+ * from the topic and, if attached, from reference images treated as an
+ * earlier "Part 1" post in the same series. The AI only proposes *which*
+ * real foods to use (as search queries) — every calorie/protein number
+ * still comes from an actual USDA FoodData Central lookup, never from the
+ * model itself. If a specific brand/item isn't in USDA's database, a
+ * generic equivalent it also proposed is used instead (flagged as
+ * approximated), rather than leaving the slide empty.
  */
 export async function brainstormCarousel(
   topic: string,
@@ -395,15 +417,16 @@ export async function brainstormCarousel(
   count: number,
   region: string,
   city: string,
+  format: BrainstormFormat | null,
   settings: AppSettings
 ): Promise<BrainstormedCarousel> {
-  const prompt = buildCarouselBrainstormPrompt(topic, count, images.length > 0, region, city);
+  const prompt = buildCarouselBrainstormPrompt(topic, count, images.length > 0, region, city, format);
   const text = await draftCopy(prompt, settings, {
     images: images.length > 0 ? images : undefined,
     maxTokens: 700 + count * 260,
   });
 
-  const parsed = parseCarouselBrainstorm(text, count);
+  const parsed = parseCarouselBrainstorm(text, count, format);
   if (!parsed) {
     const snippet = text.trim().slice(0, 500);
     throw new Error(

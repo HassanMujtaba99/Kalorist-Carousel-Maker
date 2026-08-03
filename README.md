@@ -30,10 +30,12 @@ On the main builder, "Brainstorm entire carousel" (above the slide list)
 replaces manually entering every headline, food comparison, and CTA
 yourself: give it a topic, attach reference images, or both — a topic isn't
 required if you attach images. Both are sent to your chosen copy-provider
-model (if it supports vision) and it drafts the whole carousel in one shot,
-inferring the post FORMAT — "this or that" comparisons, a "day on a plate"
-grid, or a "protein swap" before/after meal comparison — from what you gave
-it.
+model (if it supports vision) and it drafts the whole carousel in one shot.
+
+**Content format** picks which content-slide type it generates — "This or
+That" comparisons, a "Day on a Plate" grid, or a "Protein Swap" before/after
+meal comparison — or leave it on "Let AI decide" to infer it from your
+topic/reference images (it otherwise defaults to This or That).
 
 Attaching reference image(s) from an earlier post treats them as "Part 1" of
 the series: the model infers the topic, tone, and format from the images and
