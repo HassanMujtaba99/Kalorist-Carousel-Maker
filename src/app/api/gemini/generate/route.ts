@@ -22,8 +22,15 @@ interface GeminiResponse {
   promptFeedback?: { blockReason?: string };
 }
 
+/** Turns a "data:image/png;base64,...." data URL into a Gemini inlineData part. */
+function dataUrlToInlinePart(dataUrl: string): { inlineData: { mimeType: string; data: string } } | null {
+  const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) return null;
+  return { inlineData: { mimeType: match[1], data: match[2] } };
+}
+
 export async function POST(req: NextRequest) {
-  let body: { prompt?: string; apiKey?: string; model?: string };
+  let body: { prompt?: string; apiKey?: string; model?: string; images?: string[] };
   try {
     body = await req.json();
   } catch {
@@ -44,6 +51,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing 'prompt'." }, { status: 400 });
   }
 
+  const imageParts = (body.images ?? [])
+    .map(dataUrlToInlinePart)
+    .filter((p): p is NonNullable<typeof p> => p !== null);
+
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
     model
   )}:generateContent`;
@@ -57,7 +68,7 @@ export async function POST(req: NextRequest) {
         "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: "user", parts: [...imageParts, { text: prompt }] }],
         generationConfig: {
           responseModalities: ["IMAGE"],
           imageConfig: { aspectRatio: "4:5" },

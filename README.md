@@ -13,6 +13,17 @@ On-slide copy (headlines, labels, CTAs) can optionally be drafted by an AI
 model of your choice — Claude, Gemini, OpenAI, or any other OpenAI-compatible
 API (Groq, Mistral, a local Ollama server, etc) — picked in Settings.
 
+## Recreate from your own photos
+
+At `/recreate` (linked from the main builder) is an alternate flow for when
+you want to use your *own* photos instead of a fully AI-imagined scene: pick
+"Photo + Caption", "This or That", or "Day on a Plate", upload the relevant
+photo(s), and the AI composes them into the same badge/pill/typography
+layout as the main builder — the photo itself is used as-is, not
+regenerated. Nutrition numbers still come from the same real USDA
+FoodData Central search. Uses the same API keys as the main page (shared
+via the same settings).
+
 ## How it works
 
 0. On first visit you're asked to **sign up**, **log in**, or **continue as

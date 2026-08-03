@@ -9,14 +9,14 @@ import type {
 } from "./types";
 import { sumCalories, sumProtein } from "./nutrition";
 
-const STYLE_GUIDE = `Design system: minimalist Instagram carousel slide for a fitness/nutrition
+export const STYLE_GUIDE = `Design system: minimalist Instagram carousel slide for a fitness/nutrition
 coaching brand. Portrait orientation, generous white space, clean bold
 sans-serif typography (similar to a rounded grotesk / Poppins style), fully
 legible spelling with no garbled or misspelled letters. No stock-photo
 watermarks, no extra logos, no borders, no captions outside of the slide
 itself.`;
 
-function foodLine(item: FoodItem): string {
+export function foodLine(item: FoodItem): string {
   const serving = item.servingDescription ? ` (${item.servingDescription})` : "";
   const brand = item.brandName ? `${item.brandName} ` : "";
   return `${brand}${item.description}${serving} — exactly ${item.calories} kcal${
@@ -24,13 +24,13 @@ function foodLine(item: FoodItem): string {
   }`;
 }
 
-function attribution(): string {
+export function attribution(): string {
   return `All calorie and protein figures are verified facts sourced from the USDA
 FoodData Central database — render every number EXACTLY as given below, do
 not round, invent, or alter a single digit.`;
 }
 
-function brandBadge(brand: CarouselBrand): string {
+export function brandBadge(brand: CarouselBrand): string {
   return `Top-left corner: a small rounded logo badge with the brand name
 "${brand.name}" in bold uppercase letters, using ${brand.accentColor} as an
 accent color.`;

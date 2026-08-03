@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import JSZip from "jszip";
 import { authClient } from "@/lib/auth/client";
 import { useSettings } from "@/hooks/useSettings";
@@ -190,9 +191,14 @@ export function CarouselBuilder() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
       <header className="space-y-1">
-        <h1 className="text-3xl font-extrabold tracking-tight text-ink">
-          Carousel Maker
-        </h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="text-3xl font-extrabold tracking-tight text-ink">
+            Carousel Maker
+          </h1>
+          <Link href="/recreate" className="text-sm font-semibold text-purple hover:underline">
+            Recreate from your own photos →
+          </Link>
+        </div>
         <p className="max-w-2xl text-sm text-ink/60">
           Build nutrition-education carousel posts. Calorie and protein figures
           are pulled live from the USDA FoodData Central database and baked

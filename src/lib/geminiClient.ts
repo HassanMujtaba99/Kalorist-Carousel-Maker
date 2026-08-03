@@ -1,12 +1,14 @@
 export async function generateSlideImage(
   prompt: string,
   apiKey: string,
-  model: string
+  model: string,
+  /** Reference photos (data URLs) to include as-is in the composed slide, e.g. a user's own photo. */
+  images?: string[]
 ): Promise<string> {
   const res = await fetch("/api/gemini/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, apiKey, model }),
+    body: JSON.stringify({ prompt, apiKey, model, images }),
   });
   const json = await res.json();
   if (!res.ok) {
