@@ -142,27 +142,41 @@ fresh follow-up post, not a copy of what's shown.`
 }
 
 First decide the FORMAT for this post${hasImages ? " (matching the reference image(s) if attached)" : ""}:
-- "this-or-that": head-to-head comparisons of two options per slide (e.g. a fried chicken sandwich vs. a grilled chicken sandwich)
+- "this-or-that": head-to-head comparisons of two options per slide, ideally two competing real restaurant/brand items against each other
 - "day-on-a-plate": one slide showing several meals/snacks across a day (breakfast, lunch, dinner, snacks, etc.)
 ${hasImages ? "" : 'Default to "this-or-that" unless the topic clearly calls for a full day of meals.'}
 
-Each food QUERY below MUST be a real, well-known food or menu item, written
-as a SHORT, searchable name (2-5 words) the way it would appear on a
-nutrition label — e.g. "grilled chicken sandwich", "blueberry muffin",
-"chocolate milkshake", or a specific local menu item's actual name. Do NOT add descriptive clauses like "with
+Each food QUERY below should name a REAL restaurant/brand's actual menu item
+by name whenever one exists — e.g. "<Brand> <Product>" style naming, the
+same way a customer would order it${
+    hasRegion ? ` — a real local or international brand's item that
+actually exists in ${place}` : ""
+  }. Do NOT describe it generically ("a fried chicken sandwich", "a spiced
+rice dish") when a specific real brand/product name is available — name the
+brand. Only fall back to a plain generic description when there's genuinely
+no specific branded product to point to — e.g. an unbranded home-cooked or
+traditional dish with no single restaurant associated with it. Either way,
+keep it SHORT (2-5 words) and do NOT add descriptive clauses like "with
 brown rice, black beans, and salsa" or "on whole wheat" — those hurt the
-database search and are not allowed. A restaurant/brand name is fine only
-when it's part of the item's actual product name; otherwise keep it
-generic. It will be looked up in the USDA FoodData Central database
-(which is US-centric and may not carry local/regional brands or dishes) for
-its real calorie count — do not invent numbers, only name real foods.
+database search.
+
+The QUERY does not need to be something USDA's database will find on its
+own — that's what the GENERIC field below is for. Never water down or
+genericize the QUERY itself just to make it more searchable.
 
 Every QUERY must be paired with a GENERIC fallback: a plain, widely-known
-equivalent food (no brand name, no region-specific name) that the database
-is likely to have, to use if the specific item isn't found — e.g. GENERIC
-"cheeseburger" for QUERY "McDonald's Cheeseburger", or GENERIC "fried
-chicken sandwich" for a local chain's fried chicken burger, or GENERIC
-"rice and lentils" for a regional dish the database may not carry by name.
+equivalent food (no brand name, no region-specific name) that USDA's
+US-centric database is likely to have, used automatically if the specific
+branded item isn't found — e.g. GENERIC "cheeseburger" for QUERY
+"McDonald's Cheeseburger", or GENERIC "fried chicken sandwich" for a local
+chain's fried chicken burger, or GENERIC "rice and lentils" for a regional
+dish the database may not carry by name. It will be looked up in the USDA
+FoodData Central database for its real calorie count — do not invent
+numbers, only name real foods.
+
+Each LABEL should also name the real brand/product from its QUERY (not a
+generic description like "Spicy Chicken Deal") so the label and the photo
+it drives both point at something the audience actually recognizes.
 
 Reply with ONLY the fields below, one per line, in this exact "KEY: value" shape.
 Do not add any preamble, explanation, sign-off, markdown formatting, bullet
@@ -174,16 +188,16 @@ HEADLINE: <cover slide headline, max 12 words>
 CTA: <closing call-to-action line, max 8 words>
 
 If FORMAT is this-or-that, follow with exactly ${count} of these blocks (COMPARISON_1 through COMPARISON_${count}):
-COMPARISON_N_LEFT_QUERY: <a real, specific, searchable food or menu item name>
+COMPARISON_N_LEFT_QUERY: <the real, specific food/menu item name, brand included if one applies>
 COMPARISON_N_LEFT_GENERIC: <plain generic fallback name for that food>
-COMPARISON_N_LEFT_LABEL: <punchy 2-4 word label for this side>
-COMPARISON_N_RIGHT_QUERY: <a real, specific, searchable food or menu item name>
+COMPARISON_N_LEFT_LABEL: <punchy 2-4 word label naming the same brand/product as the QUERY>
+COMPARISON_N_RIGHT_QUERY: <the real, specific food/menu item name, brand included if one applies>
 COMPARISON_N_RIGHT_GENERIC: <plain generic fallback name for that food>
-COMPARISON_N_RIGHT_LABEL: <punchy 2-4 word label for this side>
+COMPARISON_N_RIGHT_LABEL: <punchy 2-4 word label naming the same brand/product as the QUERY>
 
 If FORMAT is day-on-a-plate, instead follow with exactly ${count} of these blocks (SECTION_1 through SECTION_${count}):
 SECTION_N_LABEL: <meal label, e.g. Breakfast>
-SECTION_N_QUERY: <a real, specific, searchable food or menu item name for that meal>
+SECTION_N_QUERY: <the real, specific food/menu item name for that meal, brand included if one applies>
 SECTION_N_GENERIC: <plain generic fallback name for that food>`;
 }
 
