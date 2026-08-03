@@ -35,6 +35,23 @@ export function photoSubject(label: string): string {
   return `exactly what this label describes: "${label}" — nothing else, no extra food items, no text or numbers baked into the photo itself`;
 }
 
+/**
+ * What to literally photograph for a composed MEAL/PLATE (multiple real
+ * foods together), as opposed to `photoSubject()`'s single-labeled-item
+ * case. A meal's "label" (e.g. "Less protein") is a category name, not a
+ * food — photographing the label itself would be meaningless — so this is
+ * grounded in the actual resolved USDA items instead, still without baking
+ * in any numbers (those stay in the pill/stat text and attribution()).
+ * Falls back to the label only when no items have been picked yet.
+ */
+export function mealPhotoSubject(items: FoodItem[], fallbackLabel: string): string {
+  if (items.length === 0) return photoSubject(fallbackLabel);
+  const names = items.map((item) => item.description).join(", ");
+  return `a plate or bowl containing exactly these real foods, arranged
+  naturally together: ${names} — nothing else, no extra items, no text or
+  numbers baked into the photo itself`;
+}
+
 export function attribution(): string {
   return `All calorie and protein figures are verified facts sourced from the USDA
 FoodData Central database — render every number EXACTLY as given below, do
@@ -219,15 +236,15 @@ Below the headline, a two-column layout divided by a thin vertical line:
 
 LEFT column, small bold header text reading exactly: "${data.leftLabel}"
   Directly below that header, bold text reading exactly: "${leftProtein}G PROTEIN · ${leftCals} KCAL"
-  Below that, show one simple, appetising top-down product photo of
-  ${photoSubject(data.leftLabel)}
+  Below that, show one simple, appetising top-down photo of
+  ${mealPhotoSubject(data.leftItems, data.leftLabel)}
   Below the photo, small plain text listing exactly: "${leftList}"
   ${data.recommendedSide === "left" ? 'A hand-drawn-style green checkmark overlaid near the top-right corner of this column, like a marker circling the winning choice.' : ""}
 
 RIGHT column, small bold header text reading exactly: "${data.rightLabel}"
   Directly below that header, bold text reading exactly: "${rightProtein}G PROTEIN · ${rightCals} KCAL"
-  Below that, show one simple, appetising top-down product photo of
-  ${photoSubject(data.rightLabel)}
+  Below that, show one simple, appetising top-down photo of
+  ${mealPhotoSubject(data.rightItems, data.rightLabel)}
   Below the photo, small plain text listing exactly: "${rightList}"
   ${data.recommendedSide === "right" ? 'A hand-drawn-style green checkmark overlaid near the top-right corner of this column, like a marker circling the winning choice.' : ""}
 
