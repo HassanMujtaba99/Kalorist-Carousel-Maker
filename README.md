@@ -17,13 +17,21 @@ API (Groq, Mistral, a local Ollama server, etc) — picked in Settings.
 
 On the main builder, "Brainstorm entire carousel" (above the slide list)
 replaces manually entering every headline, food comparison, and CTA
-yourself: give it a topic (and optionally a few reference images for style/
-tone — sent to your chosen copy-provider model if it supports vision), and
-it drafts the whole carousel in one shot. The model only proposes *which*
-real foods to compare — every calorie number it uses still comes from a
-live USDA FoodData Central search per comparison, never from the model
-itself. Review/edit the result like any other slide before generating
-images.
+yourself: give it a topic, attach reference images, or both — a topic isn't
+required if you attach images. Both are sent to your chosen copy-provider
+model (if it supports vision) and it drafts the whole carousel in one shot,
+inferring the post FORMAT — "this or that" comparisons vs. a "day on a
+plate" grid — from what you gave it.
+
+Attaching reference image(s) from an earlier post treats them as "Part 1" of
+the series: the model infers the topic, tone, and format from the images and
+brainstorms "Part 2" — a genuinely new next installment in the same style,
+not a repeat of what's shown. The "Number of comparisons / plate sections"
+field controls how many comparisons (this-or-that) or sections (day-on-a-
+plate) it generates. The model only proposes *which* real foods to use —
+every calorie number it uses still comes from a live USDA FoodData Central
+search, never from the model itself. Review/edit the result like any other
+slide before generating images.
 
 ## Use your own photo as the Cover/CTA background
 
@@ -57,9 +65,9 @@ via the same settings).
    unavailable" message instead of taking down the page — "Continue as
    guest" always stays clickable.
 1. Every carousel has a fixed **Cover** slide, a fixed **Closing/CTA** slide,
-   and a variable middle of **content slides** (today: "This or That"; more
-   content types will be added later) that you can add, remove, and reorder
-   freely.
+   and a variable middle of **content slides** ("This or That" comparisons or
+   "Day on a Plate" grids; more content types will be added later) that you
+   can add, remove, and reorder freely.
 2. For food slides, search and pick real foods from USDA FoodData Central —
    the app computes calorie/protein totals from your picks and composes a
    detailed prompt (see `src/lib/promptBuilder.ts`) that tells Gemini exactly

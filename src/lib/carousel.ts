@@ -20,7 +20,7 @@ export function newId(prefix: string): string {
  * Cover and CTA are fixed and not part of this list. More content types
  * (e.g. "step-by-step") will be added here in the future.
  */
-export const CONTENT_SLIDE_KINDS: SlideKind[] = ["this-or-that"];
+export const CONTENT_SLIDE_KINDS: SlideKind[] = ["this-or-that", "day-on-a-plate"];
 
 export function emptyCarousel(): CarouselState {
   return {

@@ -58,11 +58,11 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
       {open && (
         <div className="space-y-4 border-t-2 border-ink px-4 py-4">
           <p className="text-sm text-ink/60">
-            {`Describe a topic (and optionally attach reference images for style/tone inspiration) and ${providerLabel} will brainstorm a full carousel — cover headline, food comparisons, and a closing CTA — replacing what's below. Every calorie number is still a real, live USDA FoodData Central lookup, never invented by the model.`}
+            {`Type a topic, attach reference images from an earlier post, or both. If you attach images, ${providerLabel} treats them as "Part 1" of the series and brainstorms the next installment — same theme, same format (this-or-that or day-on-a-plate, whichever they show) — without repeating what's already in them. Every calorie number is still a real, live USDA FoodData Central lookup, never invented by the model.`}
           </p>
 
           <label className="block text-sm">
-            <span className="kal-label">Topic / niche</span>
+            <span className="kal-label">Topic / niche (optional if you attach reference images)</span>
             <input
               type="text"
               value={topic}
@@ -74,8 +74,8 @@ export function BrainstormPanel({ settings, onGenerated }: Props) {
 
           <ReferenceImagesUpload images={images} onChange={setImages} />
 
-          <label className="block max-w-[10rem] text-sm">
-            <span className="kal-label">Number of comparisons</span>
+          <label className="block max-w-[14rem] text-sm">
+            <span className="kal-label">Number of comparisons / plate sections</span>
             <input
               type="number"
               min={1}
