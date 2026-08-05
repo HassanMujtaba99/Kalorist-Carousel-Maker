@@ -87,6 +87,34 @@ regenerated. Nutrition numbers still come from the same real USDA
 FoodData Central search. Uses the same API keys as the main page (shared
 via the same settings).
 
+## Studio: build from reference posts, item by item
+
+At `/studio` (linked from the main builder) is a guided, step-by-step flow
+for when you want a new carousel closely modeled on a handful of real
+example posts:
+
+1. **Share references.** Attach up to 6 reference images and describe the
+   value the content provides the viewer — the specific reason it performs
+   well (not just what it looks like).
+2. **Confirm identified items.** Gemini runs a best-effort object-detection
+   pass on each image and overlays a box per identified item directly on
+   the image. Boxes can be off-position or wrong-sized, or miss things
+   entirely — drag a box to reposition it, drag its corner handle to
+   resize it, rename it via the input list below the image, remove
+   anything wrong, or add a box for anything missed. If detection fails
+   outright (bad key, rate limit), you can still annotate manually.
+3. **Generate the idea.** Pick a content format (or let the AI infer it)
+   and it brainstorms a full new carousel — cover, content slide(s), CTA —
+   grounded in your value proposition and the confirmed items, the same
+   USDA-grounded engine "Brainstorm entire carousel" uses.
+4. **Generate images.** Review/edit the generated carousel like any other
+   (same slide editors), then generate. Each slide's image-generation
+   prompt is built from the confirmed items via the brainstormed content
+   — and, for slides without their own background photo, up to two of
+   your reference images are attached purely for visual style matching
+   (color palette, layout, typography) without copying their specific
+   content.
+
 ## How it works
 
 0. On first visit you're asked to **sign up**, **log in**, or **continue as

@@ -117,7 +117,8 @@ function buildCarouselBrainstormPrompt(
   hasImages: boolean,
   region: string,
   city: string,
-  forcedFormat: BrainstormFormat | null
+  forcedFormat: BrainstormFormat | null,
+  extraContext: string | null
 ): string {
   const hasRegion = region.trim().length > 0;
   const hasCity = hasRegion && city.trim().length > 0;
@@ -153,7 +154,7 @@ or text actually visible in the reference image(s) — this must read as a
 fresh follow-up post, not a copy of what's shown.`
     : ""
 }
-
+${extraContext ? `\n${extraContext}\n` : ""}
 ${
   forcedFormat
     ? `The FORMAT for this post is fixed: "${forcedFormat}". Do not choose a
@@ -409,7 +410,10 @@ export interface BrainstormedCarousel {
  * still comes from an actual USDA FoodData Central lookup, never from the
  * model itself. If a specific brand/item isn't in USDA's database, a
  * generic equivalent it also proposed is used instead (flagged as
- * approximated), rather than leaving the slide empty.
+ * approximated), rather than leaving the slide empty. `extraContext` is an
+ * optional extra block of grounding text (e.g. a value proposition and
+ * user-confirmed identified items from reference posts) inserted into the
+ * prompt as-is.
  */
 export async function brainstormCarousel(
   topic: string,
@@ -418,9 +422,18 @@ export async function brainstormCarousel(
   region: string,
   city: string,
   format: BrainstormFormat | null,
-  settings: AppSettings
+  settings: AppSettings,
+  extraContext: string | null = null
 ): Promise<BrainstormedCarousel> {
-  const prompt = buildCarouselBrainstormPrompt(topic, count, images.length > 0, region, city, format);
+  const prompt = buildCarouselBrainstormPrompt(
+    topic,
+    count,
+    images.length > 0,
+    region,
+    city,
+    format,
+    extraContext
+  );
   const text = await draftCopy(prompt, settings, {
     images: images.length > 0 ? images : undefined,
     maxTokens: 700 + count * 260,

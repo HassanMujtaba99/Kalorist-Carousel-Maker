@@ -210,9 +210,14 @@ export function CarouselBuilder() {
           <h1 className="text-3xl font-extrabold tracking-tight text-ink">
             Carousel Maker
           </h1>
-          <Link href="/recreate" className="text-sm font-semibold text-purple hover:underline">
-            Recreate from your own photos →
-          </Link>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <Link href="/recreate" className="text-sm font-semibold text-purple hover:underline">
+              Recreate from your own photos →
+            </Link>
+            <Link href="/studio" className="text-sm font-semibold text-purple hover:underline">
+              Build from reference posts →
+            </Link>
+          </div>
         </div>
         <p className="max-w-2xl text-sm text-ink/60">
           Build nutrition-education carousel posts. Calorie and protein figures
