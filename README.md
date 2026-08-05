@@ -137,8 +137,7 @@ automatically with the rest of the app.
 
 (Claude Code: `claude mcp add --transport http kalorist-carousel-maker https://<your-deployed-app>.vercel.app/api/mcp`)
 
-**Tools exposed** (AI/USDA provider keys are all BYOK — passed as arguments,
-used only for that call, never stored server-side):
+**Tools exposed:**
 
 - `search_usda_food` — look up real calorie/protein figures for a food or
   menu item.
@@ -160,12 +159,25 @@ Typical flow: `brainstorm_carousel` → `generate_slide_image` once per
 returned slide → `save_carousel` with the collected `slide` objects.
 
 **Connecting a tool call to your account.** MCP tool calls have no browser
-session, so saving needs its own credential: sign in on the site, open the
-**Connect Claude (MCP)** panel, and click "Generate token". Pass the token
-as the `mcpToken` argument on `save_carousel` (and optionally on
-`brainstorm_carousel` / `generate_slide_image` if you're using
-`referenceImageTags`, below). Only a salted hash of the token is stored;
-revoke it any time from the same panel.
+session, so there's no automatic way for a call to know "this is your
+account" the way a page load on the website does — it needs its own
+credential. Sign in on the site, open the **Connect Claude (MCP)** panel,
+and click "Generate token". Pass that token as the `mcpToken` argument and
+two things follow from it:
+
+1. **Your saved provider keys are used automatically.** If you've already
+   entered API keys in the app's Settings panel, pass `mcpToken` alone on
+   `search_usda_food` / `brainstorm_carousel` / `generate_slide_image` and
+   leave out `usdaApiKey` / `copyProvider` / `anthropicApiKey` /
+   `geminiApiKey` / etc. — each one falls back to whatever's saved in your
+   account. Pass an explicit key as well and it overrides the saved one just
+   for that call.
+2. **`save_carousel` and `referenceImageTags` become available** — these
+   always require `mcpToken` since they read/write account-scoped data (no
+   anonymous equivalent exists).
+
+Only a salted hash of the token is stored; revoke it any time from the same
+panel.
 
 **Reference images without pasting a data URL.** Since there's no way to
 attach a file to a chat message inside a chatbox, the same "Connect Claude"
