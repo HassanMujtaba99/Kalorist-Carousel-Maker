@@ -10,13 +10,31 @@ import type {
   TitleSlideData,
 } from "./types";
 import { newId } from "./carousel";
-import { draftCopy } from "./copyProvider";
-import { searchUsdaFood } from "./usdaClient";
+import { draftCopy as draftCopyClient } from "./copyProvider";
+import { searchUsdaFood as searchUsdaFoodClient } from "./usdaClient";
 
 /** Cap on how many items the brainstorm will ask for per side of a
  * protein-swap slide — a real meal is a handful of components, not an
  * open-ended list, and this keeps the prompt/parsing bounded. */
 const MAX_PROTEIN_SWAP_ITEMS_PER_SIDE = 4;
+
+type DraftCopyFn = typeof draftCopyClient;
+type SearchUsdaFoodFn = typeof searchUsdaFoodClient;
+
+/**
+ * The browser-only client versions of these (copyProvider.ts's draftCopy,
+ * usdaClient.ts's searchUsdaFood) do relative fetch("/api/...") calls that
+ * only resolve inside a page — they throw with no implicit origin when
+ * called from a server context (e.g. the MCP route). Injecting them keeps
+ * this whole module usable from both, with the UI's existing behavior
+ * unchanged by default.
+ */
+export interface BrainstormDeps {
+  draftCopy: DraftCopyFn;
+  searchUsdaFood: SearchUsdaFoodFn;
+}
+
+const defaultDeps: BrainstormDeps = { draftCopy: draftCopyClient, searchUsdaFood: searchUsdaFoodClient };
 
 /**
  * Picks the first USDA search result that actually resolved to a real
@@ -42,7 +60,11 @@ function simplifyFoodQuery(query: string): string | null {
  * fallback attempts where the primary attempt already told us whether USDA
  * itself is reachable, so a fallback-specific error shouldn't change the
  * outcome. */
-async function trySearch(query: string, apiKey: string): Promise<FoodItem | null> {
+async function trySearch(
+  query: string,
+  apiKey: string,
+  searchUsdaFood: SearchUsdaFoodFn
+): Promise<FoodItem | null> {
   try {
     return pickResolvedFood(await searchUsdaFood(query, apiKey));
   } catch {
@@ -70,7 +92,8 @@ interface FoodResolution {
 async function resolveFood(
   query: string,
   genericQuery: string | null,
-  apiKey: string
+  apiKey: string,
+  searchUsdaFood: SearchUsdaFoodFn
 ): Promise<FoodResolution> {
   let primaryResults: FoodItem[];
   try {
@@ -84,18 +107,18 @@ async function resolveFood(
 
   const simplified = simplifyFoodQuery(query);
   if (simplified) {
-    const food = await trySearch(simplified, apiKey);
+    const food = await trySearch(simplified, apiKey, searchUsdaFood);
     if (food) return { food, error: null };
   }
 
   const generic = genericQuery?.trim();
   if (generic && generic.toLowerCase() !== query.trim().toLowerCase()) {
-    const food = await trySearch(generic, apiKey);
+    const food = await trySearch(generic, apiKey, searchUsdaFood);
     if (food) return { food: { ...food, approximated: true }, error: null };
 
     const simplifiedGeneric = simplifyFoodQuery(generic);
     if (simplifiedGeneric) {
-      const fallbackFood = await trySearch(simplifiedGeneric, apiKey);
+      const fallbackFood = await trySearch(simplifiedGeneric, apiKey, searchUsdaFood);
       if (fallbackFood) return { food: { ...fallbackFood, approximated: true }, error: null };
     }
   }
@@ -413,7 +436,10 @@ export interface BrainstormedCarousel {
  * approximated), rather than leaving the slide empty. `extraContext` is an
  * optional extra block of grounding text (e.g. a value proposition and
  * user-confirmed identified items from reference posts) inserted into the
- * prompt as-is.
+ * prompt as-is. `deps` injects the draftCopy/searchUsdaFood implementations
+ * — defaults to the browser-fetch client versions the UI already uses; pass
+ * the server versions (see src/lib/server/) when calling from a server
+ * context such as the MCP route.
  */
 export async function brainstormCarousel(
   topic: string,
@@ -423,7 +449,8 @@ export async function brainstormCarousel(
   city: string,
   format: BrainstormFormat | null,
   settings: AppSettings,
-  extraContext: string | null = null
+  extraContext: string | null = null,
+  deps: BrainstormDeps = defaultDeps
 ): Promise<BrainstormedCarousel> {
   const prompt = buildCarouselBrainstormPrompt(
     topic,
@@ -434,7 +461,7 @@ export async function brainstormCarousel(
     format,
     extraContext
   );
-  const text = await draftCopy(prompt, settings, {
+  const text = await deps.draftCopy(prompt, settings, {
     images: images.length > 0 ? images : undefined,
     maxTokens: 700 + count * 260,
   });
@@ -465,7 +492,9 @@ export async function brainstormCarousel(
 
     const resolveSide = async (items: BrainstormFoodQuery[], sideLabel: string) => {
       const resolutions = await Promise.all(
-        items.map((item) => resolveFood(item.query, item.generic, settings.usdaApiKey))
+        items.map((item) =>
+          resolveFood(item.query, item.generic, settings.usdaApiKey, deps.searchUsdaFood)
+        )
       );
       const foods: FoodItem[] = [];
       resolutions.forEach((res, i) => {
@@ -500,7 +529,7 @@ export async function brainstormCarousel(
     totalQueries = parsed.sections.length;
     const resolutions = await Promise.all(
       parsed.sections.map((section) =>
-        resolveFood(section.query, section.generic, settings.usdaApiKey)
+        resolveFood(section.query, section.generic, settings.usdaApiKey, deps.searchUsdaFood)
       )
     );
     const sections: PlateSection[] = parsed.sections.map((section, i) => {
@@ -519,8 +548,8 @@ export async function brainstormCarousel(
     totalQueries = parsed.comparisons.length * 2;
     for (const comparison of parsed.comparisons) {
       const [leftRes, rightRes] = await Promise.all([
-        resolveFood(comparison.leftQuery, comparison.leftGeneric, settings.usdaApiKey),
-        resolveFood(comparison.rightQuery, comparison.rightGeneric, settings.usdaApiKey),
+        resolveFood(comparison.leftQuery, comparison.leftGeneric, settings.usdaApiKey, deps.searchUsdaFood),
+        resolveFood(comparison.rightQuery, comparison.rightGeneric, settings.usdaApiKey, deps.searchUsdaFood),
       ]);
       track(comparison.leftQuery, comparison.leftGeneric, leftRes);
       track(comparison.rightQuery, comparison.rightGeneric, rightRes);

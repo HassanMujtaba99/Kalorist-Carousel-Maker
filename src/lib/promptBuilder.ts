@@ -21,6 +21,17 @@ watermarks, no extra logos or icons beyond what's explicitly described
 below, no borders, no captions outside of the slide itself. Every element
 should earn its place — when in doubt, leave it out.`;
 
+/** Appended to a slide prompt when one or more images are attached purely
+ * for visual style reference (Studio, MCP generate_slide_image) rather than
+ * as the slide's own literal background photo — tells Gemini to match the
+ * look without copying the reference's actual content. */
+export const STYLE_MATCH_SUFFIX = `
+
+A reference image is attached purely for VISUAL STYLE matching — match its
+color palette, layout composition, and typography treatment, but do NOT
+copy its specific content, text, food items, logos, or exact composition.
+Generate the content described above in that same visual style.`;
+
 /**
  * What to literally photograph — driven entirely by the human-facing label,
  * never by the raw USDA item description or its calorie/protein figures.

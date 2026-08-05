@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth/client";
 import { useSettings } from "@/hooks/useSettings";
 import { useGuestMode } from "@/hooks/useGuestMode";
 import { emptyCarousel, newId } from "@/lib/carousel";
-import { buildSlidePrompt, slidePhotos } from "@/lib/promptBuilder";
+import { buildSlidePrompt, slidePhotos, STYLE_MATCH_SUFFIX } from "@/lib/promptBuilder";
 import { generateSlideImage } from "@/lib/geminiClient";
 import { detectImageItems } from "@/lib/geminiVisionClient";
 import {
@@ -27,13 +27,6 @@ import { BadgeTemplatePicker } from "./BadgeTemplatePicker";
 import { SlideCard } from "./SlideCard";
 
 type Step = "upload" | "review" | "idea" | "slides";
-
-const STYLE_MATCH_SUFFIX = `
-
-A reference image is attached purely for VISUAL STYLE matching — match its
-color palette, layout composition, and typography treatment, but do NOT
-copy its specific content, text, food items, logos, or exact composition.
-Generate the content described above in that same visual style.`;
 
 export function StudioBuilder() {
   const { data: session, isPending: sessionPending } = authClient.useSession();

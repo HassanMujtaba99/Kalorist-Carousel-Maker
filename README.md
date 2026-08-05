@@ -115,6 +115,51 @@ example posts:
    (color palette, layout, typography) without copying their specific
    content.
 
+## MCP server: let Claude drive it for you
+
+This app also runs as a remote [MCP](https://modelcontextprotocol.io) server
+at `/api/mcp` — add its URL to any MCP-compatible Claude client (Claude
+Desktop, Claude Code, claude.ai custom connectors) and Claude can build
+carousels for you directly, no local install required. It deploys
+automatically with the rest of the app.
+
+**Claude Desktop / Claude Code** — add to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "kalorist-carousel-maker": {
+      "url": "https://<your-deployed-app>.vercel.app/api/mcp"
+    }
+  }
+}
+```
+
+(Claude Code: `claude mcp add --transport http kalorist-carousel-maker https://<your-deployed-app>.vercel.app/api/mcp`)
+
+**Tools exposed** (all BYOK — every tool takes your own API keys as
+arguments, used only for that call, never stored server-side):
+
+- `search_usda_food` — look up real calorie/protein figures for a food or
+  menu item.
+- `brainstorm_carousel` — draft a full carousel (cover, content slide(s) in
+  "this or that" / "day on a plate" / "protein swap" format, closing CTA),
+  same USDA-grounded engine the app's UI uses. Returns `SlideData` objects.
+- `generate_slide_image` — render a finished slide image from a `SlideData`
+  object (as returned by `brainstorm_carousel`), reusing the app's own
+  prompt templates so the badge/typography/layout stay consistent.
+
+Typical flow: `brainstorm_carousel` → `generate_slide_image` once per
+returned slide. Scoped to these three read/compute capabilities for now —
+no save-to-account or carousel-history tools, since those need a signed-in
+session an MCP tool call doesn't have.
+
+Internally, the MCP route calls Anthropic/Gemini/OpenAI/USDA directly
+(`src/lib/server/*`) rather than routing back through this app's own
+`/api/*` routes, which assume a browser's implicit origin for their
+relative `fetch()` calls — that assumption doesn't hold in a server
+context.
+
 ## How it works
 
 0. On first visit you're asked to **sign up**, **log in**, or **continue as
