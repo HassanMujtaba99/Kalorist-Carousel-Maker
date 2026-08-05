@@ -63,6 +63,34 @@ async function createSchema(): Promise<void> {
     )
   `;
   await db`CREATE INDEX IF NOT EXISTS idx_carousels_user ON carousels(user_id)`;
+
+  // MCP access tokens — let a remote MCP tool call (no browser cookie) prove
+  // which account it's acting on. Only a salted hash is ever stored; the
+  // plaintext token is shown once at creation and never persisted.
+  await db`
+    CREATE TABLE IF NOT EXISTS mcp_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      created_at BIGINT NOT NULL,
+      last_used_at BIGINT
+    )
+  `;
+  await db`CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user ON mcp_tokens(user_id)`;
+
+  // Reference images uploaded via the website widget, referenced from a
+  // Claude conversation by their short tag instead of pasting a raw data URL.
+  await db`
+    CREATE TABLE IF NOT EXISTS mcp_images (
+      tag TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      data_base64 TEXT NOT NULL,
+      created_at BIGINT NOT NULL
+    )
+  `;
+  await db`CREATE INDEX IF NOT EXISTS idx_mcp_images_user ON mcp_images(user_id)`;
 }
 
 /** Runs the CREATE TABLE IF NOT EXISTS migration once per warm instance. */

@@ -137,8 +137,8 @@ automatically with the rest of the app.
 
 (Claude Code: `claude mcp add --transport http kalorist-carousel-maker https://<your-deployed-app>.vercel.app/api/mcp`)
 
-**Tools exposed** (all BYOK — every tool takes your own API keys as
-arguments, used only for that call, never stored server-side):
+**Tools exposed** (AI/USDA provider keys are all BYOK — passed as arguments,
+used only for that call, never stored server-side):
 
 - `search_usda_food` — look up real calorie/protein figures for a food or
   menu item.
@@ -147,18 +147,42 @@ arguments, used only for that call, never stored server-side):
   same USDA-grounded engine the app's UI uses. Returns `SlideData` objects.
 - `generate_slide_image` — render a finished slide image from a `SlideData`
   object (as returned by `brainstorm_carousel`), reusing the app's own
-  prompt templates so the badge/typography/layout stay consistent.
+  prompt templates so the badge/typography/layout stay consistent. Also
+  returns a ready-made `slide` JSON object (image + metadata) you can pass
+  straight into `save_carousel`.
+- `save_carousel` — save the finished carousel into your Kalorist account so
+  it shows up in **My Carousels** on the site, where you can view each slide
+  and use the existing "Download all as ZIP" button. Requires `mcpToken`
+  (see below). Pass `carouselId` from an earlier `save_carousel` call to
+  update that carousel instead of creating a new one.
 
 Typical flow: `brainstorm_carousel` → `generate_slide_image` once per
-returned slide. Scoped to these three read/compute capabilities for now —
-no save-to-account or carousel-history tools, since those need a signed-in
-session an MCP tool call doesn't have.
+returned slide → `save_carousel` with the collected `slide` objects.
+
+**Connecting a tool call to your account.** MCP tool calls have no browser
+session, so saving needs its own credential: sign in on the site, open the
+**Connect Claude (MCP)** panel, and click "Generate token". Pass the token
+as the `mcpToken` argument on `save_carousel` (and optionally on
+`brainstorm_carousel` / `generate_slide_image` if you're using
+`referenceImageTags`, below). Only a salted hash of the token is stored;
+revoke it any time from the same panel.
+
+**Reference images without pasting a data URL.** Since there's no way to
+attach a file to a chat message inside a chatbox, the same "Connect Claude"
+panel has an upload widget: pick an image, hit submit, and it's stored under
+your account with a short tag (e.g. `img_7f3a2c`) plus a "Copy for Claude"
+button that copies a ready-made sentence referencing it. Paste that into
+your message yourself — Claude can't reach into the page and do it for you
+— then pass the tag via `referenceImageTags` on `brainstorm_carousel` or
+`generate_slide_image` (alongside `mcpToken`) instead of a raw `data:` URL.
 
 Internally, the MCP route calls Anthropic/Gemini/OpenAI/USDA directly
 (`src/lib/server/*`) rather than routing back through this app's own
 `/api/*` routes, which assume a browser's implicit origin for their
 relative `fetch()` calls — that assumption doesn't hold in a server
-context.
+context. `save_carousel` and image-tag lookups are the one place account
+data is touched, via a small token table (`src/lib/server/mcpAuthRepo.ts`)
+separate from Neon Auth's cookie-based session.
 
 ## How it works
 

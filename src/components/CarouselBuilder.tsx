@@ -23,6 +23,7 @@ import { AuthPanel } from "./AuthPanel";
 import { WelcomeGate } from "./WelcomeGate";
 import { SettingsPanel } from "./SettingsPanel";
 import { MyCarouselsPanel } from "./MyCarouselsPanel";
+import { McpPanel } from "./McpPanel";
 import { BrainstormPanel } from "./BrainstormPanel";
 import { SlideCard } from "./SlideCard";
 import { AddContentSlideButton } from "./AddContentSlideButton";
@@ -248,6 +249,8 @@ export function CarouselBuilder() {
           onDelete={deleteCarousel}
         />
       )}
+
+      {user && <McpPanel />}
 
       <BrainstormPanel settings={settings} onGenerated={applyBrainstorm} />
 
