@@ -9,7 +9,7 @@ import { searchUsdaFoodServer } from "@/lib/server/usdaSearchServer";
 import { draftCopyServer } from "@/lib/server/draftCopyServer";
 import { generateSlideImageServer } from "@/lib/server/geminiImageServer";
 import { resolveMcpToken } from "@/lib/server/mcpAuthRepo";
-import { getMcpImageByTag } from "@/lib/server/mcpImagesRepo";
+import { getMcpImageByTag, listMcpImages } from "@/lib/server/mcpImagesRepo";
 import { createCarousel, updateCarousel } from "@/lib/server/carouselsRepo";
 import { getUserSettings } from "@/lib/server/settingsRepo";
 
@@ -218,6 +218,12 @@ const generateSlideImageInput = z.object({
       "Image generation always uses Gemini. Omit on an authenticated connection to use the Gemini key saved in your account's Settings."
     ),
   geminiModel: z.string().optional().describe("Defaults to gemini-2.5-flash-image, or your saved model on an authenticated connection"),
+  photoTag: z
+    .string()
+    .optional()
+    .describe(
+      "Tag of an image from the user's library (see list_uploaded_images) to use as the EXACT cover/CTA background photo, completely unaltered — only applies when slideData.kind is 'title' or 'cta'. Use this when the user picks a specific photo from their library for the cover/CTA rather than wanting an AI-generated scene. Takes priority over subjectImages/referenceImages. Needs an authenticated connection."
+    ),
   subjectImages: z
     .array(dataUrlSchema)
     .max(2)
@@ -295,6 +301,30 @@ const rawHandler = createMcpHandler(
     );
 
     server.registerTool(
+      "list_uploaded_images",
+      {
+        title: "List Uploaded Images",
+        description:
+          "List the photos the user has uploaded to their Kalorist photo library (via the Connect Claude page), each with a tag and a human-readable label. Call this and show the user the labels to ask which photo they mean, rather than guessing or asking them to dig up a tag themselves. Needs an authenticated connection.",
+        inputSchema: z.object({}),
+      },
+      async (_input, ctx) => {
+        try {
+          const account = await resolveAccount(ctx);
+          if (!account) {
+            throw new Error(
+              "This tool needs an authenticated connection — connect this MCP server with an Authorization header first."
+            );
+          }
+          const images = await listMcpImages(account.userId);
+          return { content: [{ type: "text", text: JSON.stringify(images, null, 2) }] };
+        } catch (e) {
+          return errorResult(e);
+        }
+      }
+    );
+
+    server.registerTool(
       "brainstorm_carousel",
       {
         title: "Brainstorm a Carousel",
@@ -344,10 +374,13 @@ const rawHandler = createMcpHandler(
       {
         title: "Generate a Slide Image",
         description:
-          "Render one finished carousel slide image from a SlideData object (as returned by brainstorm_carousel). Reuses the app's own prompt templates so the badge, typography, and layout stay consistent with the rest of the carousel. Returns the rendered image plus a 'slide' JSON object you can pass straight into save_carousel's cover/content/cta. On an authenticated connection, the Gemini key saved in your account's Settings is used automatically if geminiApiKey is omitted. Use subjectImages/subjectImageTags (not referenceImages) when the user wants an actual uploaded photo of a person or dish to appear in the result rather than a generic AI-generated one.",
+          "Render one finished carousel slide image from a SlideData object (as returned by brainstorm_carousel). Reuses the app's own prompt templates so the badge, typography, and layout stay consistent with the rest of the carousel. Returns the rendered image plus a 'slide' JSON object you can pass straight into save_carousel's cover/content/cta. On an authenticated connection, the Gemini key saved in your account's Settings is used automatically if geminiApiKey is omitted. Use photoTag for a specific library photo as the literal cover/CTA background, subjectImages/subjectImageTags when a person or dish should actually appear elsewhere, or referenceImages/referenceImageTags for style-only inspiration.",
         inputSchema: generateSlideImageInput,
       },
-      async ({ slideData, brand, geminiApiKey, geminiModel, subjectImages, subjectImageTags, referenceImages, referenceImageTags }, ctx) => {
+      async (
+        { slideData, brand, geminiApiKey, geminiModel, photoTag, subjectImages, subjectImageTags, referenceImages, referenceImageTags },
+        ctx
+      ) => {
         try {
           const account = await resolveAccount(ctx);
           const effectiveGeminiApiKey = geminiApiKey?.trim() || account?.settings?.geminiApiKey || "";
@@ -362,7 +395,20 @@ const rawHandler = createMcpHandler(
             accentColor: brand?.accentColor ?? "#22c55e",
             badgeTemplate: brand?.badgeTemplate ?? "pill",
           };
-          const data = slideData as unknown as SlideData;
+          let data = slideData as unknown as SlideData;
+          if (photoTag) {
+            if (data.kind !== "title" && data.kind !== "cta") {
+              throw new Error("photoTag only applies to 'title' or 'cta' slides.");
+            }
+            if (!account) {
+              throw new Error(
+                "photoTag needs an authenticated connection — connect this MCP server with an Authorization header first."
+              );
+            }
+            const dataUrl = await getMcpImageByTag(account.userId, photoTag);
+            if (!dataUrl) throw new Error(`Unknown image tag: ${photoTag}`);
+            data = { ...data, photo: dataUrl };
+          }
           const ownPhotos = slidePhotos(data);
           const subjectPhotos = await resolveReferenceImages(subjectImages, subjectImageTags, account);
           const styleImages = await resolveReferenceImages(referenceImages, referenceImageTags, account);
@@ -487,17 +533,21 @@ way to save).
 
 An image the user attaches directly in this chat is NOT usable by these
 tools — this server only accepts images as a data: URL argument or as a
-tag from the app's "Connect Claude" panel upload widget, and needs the
-authenticated connection either way. If the user attaches or mentions a
-photo, tell them to upload it there and paste back the tag it gives them
-(their "Copy for Claude" button prefills a message for this) — do not try
-to describe the image in words as a substitute, since that produces a
+tag from the user's photo library on the "Connect Claude" page, and needs
+the authenticated connection either way. If the user attaches or mentions a
+photo, tell them to upload it there and paste back the tag/label it gives
+them (their "Copy for Claude" button prefills a message for this) — do not
+try to describe the image in words as a substitute, since that produces a
 generic, different-looking result instead of the actual person or dish.
-Once you have a tag, pick the right parameter based on what the user wants:
-subjectImageTags on generate_slide_image if the real person or food shown
-should actually appear in the output (their likeness/appearance is
-preserved), or referenceImageTags on either tool if it's only a style/mood
-reference (content is deliberately not copied). ${BRAINSTORM_FORMATS.map((f) => f.label).join(", ")}
+Call list_uploaded_images to see what's already in their library (each
+entry has a tag and a label) before asking them to go upload something new
+— they may already have what they need. Once you have a tag, pick the
+right parameter on generate_slide_image based on what the user wants:
+photoTag if they're picking an existing photo to be the literal cover/CTA
+background exactly as-is, subjectImageTags if a real person or food should
+actually appear in the output elsewhere (likeness/appearance preserved),
+or referenceImageTags (on either tool) if it's only a style/mood reference
+(content deliberately not copied). ${BRAINSTORM_FORMATS.map((f) => f.label).join(", ")}
 are the available content formats.`,
   }
 );

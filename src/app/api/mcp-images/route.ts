@@ -22,9 +22,11 @@ export async function POST(req: NextRequest) {
   }
 
   let dataUrl: string;
+  let label: string;
   try {
     const body = await req.json();
     dataUrl = body?.dataUrl;
+    label = typeof body?.label === "string" ? body.label.trim().slice(0, 100) : "";
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const tag = await saveMcpImage(user.id, dataUrl);
+    const tag = await saveMcpImage(user.id, dataUrl, label || "Untitled");
     return NextResponse.json({ tag });
   } catch (e) {
     return NextResponse.json(

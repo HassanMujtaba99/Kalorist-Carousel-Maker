@@ -23,7 +23,6 @@ import { AuthPanel } from "./AuthPanel";
 import { WelcomeGate } from "./WelcomeGate";
 import { SettingsPanel } from "./SettingsPanel";
 import { MyCarouselsPanel } from "./MyCarouselsPanel";
-import { McpPanel } from "./McpPanel";
 import { BrainstormPanel } from "./BrainstormPanel";
 import { SlideCard } from "./SlideCard";
 import { AddContentSlideButton } from "./AddContentSlideButton";
@@ -218,6 +217,9 @@ export function CarouselBuilder() {
             <Link href="/studio" className="text-sm font-semibold text-purple hover:underline">
               Build from reference posts →
             </Link>
+            <Link href="/connect" className="text-sm font-semibold text-purple hover:underline">
+              Connect Claude →
+            </Link>
           </div>
         </div>
         <p className="max-w-2xl text-sm text-ink/60">
@@ -249,8 +251,6 @@ export function CarouselBuilder() {
           onDelete={deleteCarousel}
         />
       )}
-
-      {user && <McpPanel />}
 
       <BrainstormPanel settings={settings} onGenerated={applyBrainstorm} />
 

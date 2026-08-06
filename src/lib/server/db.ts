@@ -91,6 +91,9 @@ async function createSchema(): Promise<void> {
     )
   `;
   await db`CREATE INDEX IF NOT EXISTS idx_mcp_images_user ON mcp_images(user_id)`;
+  // Added when the image library page shipped — a human-readable name lets
+  // both the user and Claude refer to an upload by more than its tag.
+  await db`ALTER TABLE mcp_images ADD COLUMN IF NOT EXISTS label TEXT`;
 
   // Minimal OAuth 2.1 authorization server (RFC 7591 dynamic client
   // registration + authorization code + PKCE) so MCP clients that only

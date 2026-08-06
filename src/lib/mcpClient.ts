@@ -7,6 +7,7 @@ export interface McpTokenSummary {
 
 export interface McpImageSummary {
   tag: string;
+  label: string;
   createdAt: number;
 }
 
@@ -45,14 +46,23 @@ export async function listMcpImages(): Promise<McpImageSummary[]> {
   return (json.images ?? []) as McpImageSummary[];
 }
 
-export async function uploadMcpImage(dataUrl: string): Promise<string> {
+export async function uploadMcpImage(dataUrl: string, label: string): Promise<string> {
   const res = await fetch("/api/mcp-images", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dataUrl }),
+    body: JSON.stringify({ dataUrl, label }),
   });
   const json = await parseJsonOrThrow(res);
   return json.tag as string;
+}
+
+export async function renameMcpImage(tag: string, label: string): Promise<void> {
+  const res = await fetch(`/api/mcp-images/${tag}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ label }),
+  });
+  await parseJsonOrThrow(res);
 }
 
 export async function deleteMcpImage(tag: string): Promise<void> {

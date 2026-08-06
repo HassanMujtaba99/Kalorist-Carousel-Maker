@@ -151,7 +151,7 @@ on which Claude you're using:
   implement OAuth yet. It now does — see below for how.
 - **Claude Desktop / Claude Code**: these clients support a static header
   instead, which is simpler than a login popup for a local config file.
-  Generate a token from the **Connect Claude (MCP)** panel on the site — it
+  Generate a token from the **Connect Claude** page (`/connect`) on the site — it
   shows this command pre-filled with your token and deployed URL:
 
   ```
@@ -170,6 +170,9 @@ everywhere, with or without linking an account.
 
 - `search_usda_food` — look up real calorie/protein figures for a food or
   menu item.
+- `list_uploaded_images` — list the photos in the caller's library (tag +
+  name for each) so Claude can ask which one to use instead of guessing.
+  Needs the linked connection.
 - `brainstorm_carousel` — draft a full carousel (cover, content slide(s) in
   "this or that" / "day on a plate" / "protein swap" format, closing CTA),
   same USDA-grounded engine the app's UI uses. Returns `SlideData` objects.
@@ -220,31 +223,32 @@ Two things follow from connecting either way:
    data (no anonymous equivalent exists).
 
 Only a salted hash of the token is stored (`src/lib/server/mcpAuthRepo.ts`);
-revoke it any time from the **Connect Claude (MCP)** panel — doing so
+revoke it any time from the **Connect Claude** page (`/connect`) — doing so
 invalidates every connection using it immediately.
 
 **Using your own photos.** Attaching an image directly to a Claude message
 doesn't reach these tools — Claude can *see* it in the chat, but there's no
 route for that attachment's bytes to end up in a tool call, so asking
 Claude to "use this photo" from a chat attachment alone produces a generic,
-different-looking result at best. The same "Connect Claude" panel has an
-upload widget instead: pick an image, hit submit, and it's stored under
-your account with a short tag (e.g. `img_7f3a2c`) plus a "Copy for Claude"
-button that copies a ready-made sentence referencing it. Paste that into
-your message yourself — Claude can't reach into the page and do it for you
-— then Claude passes the tag along on `brainstorm_carousel` or
-`generate_slide_image` (still needs the linked connection, since tags are
-scoped to your account). Which parameter it uses matters:
+different-looking result at best. The `/connect` page has a proper photo
+library instead: drag in images (each gets a name you can edit — click it
+in the grid), and each one gets a short tag (e.g. `img_7f3a2c`) plus a
+"Copy for Claude" button that copies a ready-made sentence referencing it.
+Paste that into your message yourself — Claude can't reach into the page
+and do it for you. You don't have to remember tags either: `list_uploaded_images`
+lets Claude see your whole library (tag + name for each) and ask which one
+you mean. Which parameter Claude uses on `generate_slide_image` matters:
 
-- `subjectImageTags` (on `generate_slide_image`) — the real person or dish
-  in the photo should actually appear in the output, likeness preserved.
-  Use this for "make it me" / "use my actual meal" requests.
+- `photoTag` — a specific library photo becomes the literal cover/CTA
+  background, completely unaltered. Use this for "use my photo of X as the
+  cover" requests (the second "as cover/CTA" button on each library image
+  copies this phrasing).
+- `subjectImageTags` — the real person or dish in the photo should actually
+  appear elsewhere in the slide, likeness preserved. Use this for "make it
+  me" / "use my actual meal" requests (the default "Copy for Claude" button).
 - `referenceImageTags` (on either tool) — only the color/layout/mood should
-  carry over; the photo's specific content is deliberately not copied.
-
-The pre-filled "Copy for Claude" sentence defaults to the `subjectImageTags`
-phrasing since that's the more common ask; say "just match its style"
-instead if you want the other one.
+  carry over; the photo's specific content is deliberately not copied. Say
+  "just match its style" instead of the pre-filled phrasing for this one.
 
 Internally, the MCP route calls Anthropic/Gemini/OpenAI/USDA directly
 (`src/lib/server/*`) rather than routing back through this app's own
