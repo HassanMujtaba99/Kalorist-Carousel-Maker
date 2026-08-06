@@ -32,6 +32,15 @@ color palette, layout composition, and typography treatment, but do NOT
 copy its specific content, text, food items, logos, or exact composition.
 Generate the content described above in that same visual style.`;
 
+/** Opposite of STYLE_MATCH_SUFFIX: the attached photo IS the content to depict, not just a style cue. */
+export const SUBJECT_MATCH_SUFFIX = `
+
+A reference photo is attached showing the actual person or food to depict —
+preserve their real likeness (face, skin tone, hair, build for a person;
+exact appearance and plating for food) accurately rather than substituting
+a generic or different-looking subject. Integrate what's shown naturally
+into the scene described above.`;
+
 /**
  * What to literally photograph — driven entirely by the human-facing label,
  * never by the raw USDA item description or its calorie/protein figures.

@@ -28,7 +28,7 @@ function formatDate(ms: number): string {
 }
 
 function referenceSnippet(tag: string): string {
-  return `Use my uploaded reference image (tag: ${tag}) via the Kalorist Carousel Maker MCP.`;
+  return `Use my uploaded photo (tag: ${tag}) as the actual subject in the slide — I want the real person/food shown, not a generic AI version. (Say "just match its style" instead if you only want a mood/color reference.)`;
 }
 
 function buildConnectCommand(token: string): string {
@@ -278,11 +278,14 @@ export function McpPanel() {
 
           {/* Reference image upload */}
           <div className="space-y-3 border-t-2 border-dashed border-ink/15 pt-4">
-            <span className="kal-label">Upload a reference image</span>
+            <span className="kal-label">Upload a photo</span>
             <p className="text-xs text-ink/45">
-              Upload an image here, then paste the copied line into your Claude
-              message yourself — Claude has no way to reach into this page, so
-              the paste step is manual.
+              An image attached directly in a Claude conversation can&apos;t
+              be used by these tools — upload it here instead, then paste the
+              copied line into your Claude message yourself (Claude has no
+              way to reach into this page, so that step is manual). Use this
+              when you want a real person or dish to actually appear in the
+              generated slide, not just an AI-generated stand-in.
             </p>
 
             <div className="flex flex-wrap items-center gap-2">

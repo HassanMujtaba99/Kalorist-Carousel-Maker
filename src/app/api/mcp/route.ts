@@ -4,7 +4,7 @@ import type { AuthInfo, ServerContext } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppSettings, CarouselBrand, CarouselState, CopyProvider, Slide, SlideData } from "@/lib/types";
 import { brainstormCarousel, BRAINSTORM_FORMATS } from "@/lib/carouselBrainstorm";
-import { buildSlidePrompt, slidePhotos, STYLE_MATCH_SUFFIX } from "@/lib/promptBuilder";
+import { buildSlidePrompt, slidePhotos, STYLE_MATCH_SUFFIX, SUBJECT_MATCH_SUFFIX } from "@/lib/promptBuilder";
 import { searchUsdaFoodServer } from "@/lib/server/usdaSearchServer";
 import { draftCopyServer } from "@/lib/server/draftCopyServer";
 import { generateSlideImageServer } from "@/lib/server/geminiImageServer";
@@ -218,12 +218,26 @@ const generateSlideImageInput = z.object({
       "Image generation always uses Gemini. Omit on an authenticated connection to use the Gemini key saved in your account's Settings."
     ),
   geminiModel: z.string().optional().describe("Defaults to gemini-2.5-flash-image, or your saved model on an authenticated connection"),
+  subjectImages: z
+    .array(dataUrlSchema)
+    .max(2)
+    .optional()
+    .describe(
+      "Up to 2 photo(s) whose actual CONTENT should appear in the slide — the real person's likeness, or the real food/meal shown — not just their style. Use this (not referenceImages) whenever the user wants a specific person or dish depicted rather than a generic AI-generated one. Takes priority over referenceImages if both are given. Ignored if the slide already has its own background photo."
+    ),
+  subjectImageTags: z
+    .array(z.string())
+    .max(2)
+    .optional()
+    .describe(
+      "Tags from images uploaded via the app's Connect Claude panel, as an alternative to subjectImages. Needs an authenticated connection."
+    ),
   referenceImages: z
     .array(dataUrlSchema)
     .max(2)
     .optional()
     .describe(
-      "Up to 2 reference image(s) attached purely for visual style matching (color/layout/typography) — their content is never copied. Ignored if the slide already has its own background photo."
+      "Up to 2 reference image(s) attached purely for visual STYLE matching (color/layout/typography) — their content is never copied, so don't use this for a photo the user wants actually depicted (use subjectImages for that instead). Ignored if the slide already has its own background photo or subjectImages are given."
     ),
   referenceImageTags: z
     .array(z.string())
@@ -330,10 +344,10 @@ const rawHandler = createMcpHandler(
       {
         title: "Generate a Slide Image",
         description:
-          "Render one finished carousel slide image from a SlideData object (as returned by brainstorm_carousel). Reuses the app's own prompt templates so the badge, typography, and layout stay consistent with the rest of the carousel. Returns the rendered image plus a 'slide' JSON object you can pass straight into save_carousel's cover/content/cta. On an authenticated connection, the Gemini key saved in your account's Settings is used automatically if geminiApiKey is omitted.",
+          "Render one finished carousel slide image from a SlideData object (as returned by brainstorm_carousel). Reuses the app's own prompt templates so the badge, typography, and layout stay consistent with the rest of the carousel. Returns the rendered image plus a 'slide' JSON object you can pass straight into save_carousel's cover/content/cta. On an authenticated connection, the Gemini key saved in your account's Settings is used automatically if geminiApiKey is omitted. Use subjectImages/subjectImageTags (not referenceImages) when the user wants an actual uploaded photo of a person or dish to appear in the result rather than a generic AI-generated one.",
         inputSchema: generateSlideImageInput,
       },
-      async ({ slideData, brand, geminiApiKey, geminiModel, referenceImages, referenceImageTags }, ctx) => {
+      async ({ slideData, brand, geminiApiKey, geminiModel, subjectImages, subjectImageTags, referenceImages, referenceImageTags }, ctx) => {
         try {
           const account = await resolveAccount(ctx);
           const effectiveGeminiApiKey = geminiApiKey?.trim() || account?.settings?.geminiApiKey || "";
@@ -350,16 +364,33 @@ const rawHandler = createMcpHandler(
           };
           const data = slideData as unknown as SlideData;
           const ownPhotos = slidePhotos(data);
+          const subjectPhotos = await resolveReferenceImages(subjectImages, subjectImageTags, account);
           const styleImages = await resolveReferenceImages(referenceImages, referenceImageTags, account);
-          const usingStyleImages = ownPhotos.length === 0 && styleImages.length > 0;
-          const prompt =
-            buildSlidePrompt(data, brandObj) + (usingStyleImages ? STYLE_MATCH_SUFFIX : "");
+
+          // Priority: the slide's own configured photo (e.g. a cover/CTA
+          // background) > an uploaded photo whose actual content should
+          // appear (SUBJECT_MATCH_SUFFIX) > a photo attached purely for
+          // style inspiration (STYLE_MATCH_SUFFIX, content never copied).
+          let attachedPhotos: string[];
+          let suffix = "";
+          if (ownPhotos.length > 0) {
+            attachedPhotos = ownPhotos;
+          } else if (subjectPhotos.length > 0) {
+            attachedPhotos = subjectPhotos;
+            suffix = SUBJECT_MATCH_SUFFIX;
+          } else if (styleImages.length > 0) {
+            attachedPhotos = styleImages;
+            suffix = STYLE_MATCH_SUFFIX;
+          } else {
+            attachedPhotos = [];
+          }
+          const prompt = buildSlidePrompt(data, brandObj) + suffix;
 
           const imageDataUrl = await generateSlideImageServer(
             prompt,
             effectiveGeminiApiKey,
             effectiveGeminiModel,
-            ownPhotos.length > 0 ? ownPhotos : styleImages
+            attachedPhotos
           );
           const match = /^data:([^;]+);base64,(.+)$/.exec(imageDataUrl);
           if (!match) throw new Error("Unexpected image response shape.");
@@ -452,12 +483,22 @@ automatically for any of copyProvider/anthropicApiKey/geminiApiKey/
 usdaApiKey/etc. left unspecified — only ask the user for a raw API key if
 they're not connected that way or haven't saved one for the provider they
 want. save_carousel always needs the authenticated connection (no anonymous
-way to save). referenceImageTags on brainstorm_carousel/generate_slide_image
-also needs it and resolves images uploaded through that same "Connect
-Claude" panel, as an alternative to pasting raw data: URLs (paste-in-chat
-isn't possible for images, so this is the only way to attach one).
-${BRAINSTORM_FORMATS.map((f) => f.label).join(", ")} are the available
-content formats.`,
+way to save).
+
+An image the user attaches directly in this chat is NOT usable by these
+tools — this server only accepts images as a data: URL argument or as a
+tag from the app's "Connect Claude" panel upload widget, and needs the
+authenticated connection either way. If the user attaches or mentions a
+photo, tell them to upload it there and paste back the tag it gives them
+(their "Copy for Claude" button prefills a message for this) — do not try
+to describe the image in words as a substitute, since that produces a
+generic, different-looking result instead of the actual person or dish.
+Once you have a tag, pick the right parameter based on what the user wants:
+subjectImageTags on generate_slide_image if the real person or food shown
+should actually appear in the output (their likeness/appearance is
+preserved), or referenceImageTags on either tool if it's only a style/mood
+reference (content is deliberately not copied). ${BRAINSTORM_FORMATS.map((f) => f.label).join(", ")}
+are the available content formats.`,
   }
 );
 

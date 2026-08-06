@@ -223,15 +223,28 @@ Only a salted hash of the token is stored (`src/lib/server/mcpAuthRepo.ts`);
 revoke it any time from the **Connect Claude (MCP)** panel — doing so
 invalidates every connection using it immediately.
 
-**Reference images without pasting a data URL.** Since there's no way to
-attach a file to a chat message inside a chatbox, the same "Connect Claude"
-panel has an upload widget: pick an image, hit submit, and it's stored under
+**Using your own photos.** Attaching an image directly to a Claude message
+doesn't reach these tools — Claude can *see* it in the chat, but there's no
+route for that attachment's bytes to end up in a tool call, so asking
+Claude to "use this photo" from a chat attachment alone produces a generic,
+different-looking result at best. The same "Connect Claude" panel has an
+upload widget instead: pick an image, hit submit, and it's stored under
 your account with a short tag (e.g. `img_7f3a2c`) plus a "Copy for Claude"
 button that copies a ready-made sentence referencing it. Paste that into
 your message yourself — Claude can't reach into the page and do it for you
-— then pass the tag via `referenceImageTags` on `brainstorm_carousel` or
-`generate_slide_image` instead of a raw `data:` URL (still needs the linked
-connection, since tags are scoped to your account).
+— then Claude passes the tag along on `brainstorm_carousel` or
+`generate_slide_image` (still needs the linked connection, since tags are
+scoped to your account). Which parameter it uses matters:
+
+- `subjectImageTags` (on `generate_slide_image`) — the real person or dish
+  in the photo should actually appear in the output, likeness preserved.
+  Use this for "make it me" / "use my actual meal" requests.
+- `referenceImageTags` (on either tool) — only the color/layout/mood should
+  carry over; the photo's specific content is deliberately not copied.
+
+The pre-filled "Copy for Claude" sentence defaults to the `subjectImageTags`
+phrasing since that's the more common ask; say "just match its style"
+instead if you want the other one.
 
 Internally, the MCP route calls Anthropic/Gemini/OpenAI/USDA directly
 (`src/lib/server/*`) rather than routing back through this app's own
