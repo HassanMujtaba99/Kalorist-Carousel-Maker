@@ -39,8 +39,9 @@ export async function POST(req: NextRequest) {
     const returnTo = `/api/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(
       redirectUri
     )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256&response_type=code&state=${encodeURIComponent(state)}`;
+    const continueUrl = `/oauth-continue?to=${encodeURIComponent(returnTo)}`;
     return NextResponse.redirect(
-      new URL(`/auth/sign-in?redirectTo=${encodeURIComponent(returnTo)}`, getPublicOrigin(req))
+      new URL(`/auth/sign-in?redirectTo=${encodeURIComponent(continueUrl)}`, getPublicOrigin(req))
     );
   }
 

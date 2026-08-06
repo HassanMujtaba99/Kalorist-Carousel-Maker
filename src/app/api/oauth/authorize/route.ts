@@ -49,7 +49,11 @@ export async function GET(req: NextRequest) {
 
   if (!user) {
     const returnTo = `${req.nextUrl.pathname}${req.nextUrl.search}`;
-    const signInUrl = `/auth/sign-in?redirectTo=${encodeURIComponent(returnTo)}`;
+    // Route through /oauth-continue rather than straight back to this Route
+    // Handler — the auth UI's post-login redirect is a client-side router
+    // navigation, which only works against real pages (see that page for why).
+    const continueUrl = `/oauth-continue?to=${encodeURIComponent(returnTo)}`;
+    const signInUrl = `/auth/sign-in?redirectTo=${encodeURIComponent(continueUrl)}`;
     return NextResponse.redirect(new URL(signInUrl, getPublicOrigin(req)));
   }
 
