@@ -31,6 +31,11 @@ function referenceSnippet(tag: string): string {
   return `Use my uploaded reference image (tag: ${tag}) via the Kalorist Carousel Maker MCP.`;
 }
 
+function buildConnectCommand(token: string): string {
+  const mcpUrl = typeof window !== "undefined" ? `${window.location.origin}/api/mcp` : "/api/mcp";
+  return `claude mcp add --transport http kalorist-carousel-maker ${mcpUrl} --header "Authorization: Bearer ${token}"`;
+}
+
 async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
@@ -146,9 +151,14 @@ export function McpPanel() {
         <div className="space-y-6 border-t-2 border-ink px-4 py-4">
           <p className="text-sm text-ink/60">
             Add <code className="rounded bg-ink/5 px-1 py-0.5">/api/mcp</code> as a
-            remote MCP server in Claude Desktop, Claude Code, or claude.ai, then
-            generate an access token below so carousels Claude builds for you can
-            be saved straight to your account.
+            remote MCP server in Claude Desktop, Claude Code, or claude.ai. To
+            link it to this account — so your saved API keys are used
+            automatically and carousels Claude builds get saved to{" "}
+            <strong>My Carousels</strong> — generate a token below and connect
+            with it as an <code className="rounded bg-ink/5 px-1 py-0.5">Authorization</code>{" "}
+            header, not something you paste into a chat message. That&apos;s a
+            one-time setup step; after that, Claude never needs to ask about it
+            again.
           </p>
 
           {/* Access tokens */}
@@ -156,11 +166,12 @@ export function McpPanel() {
             <span className="kal-label">Access tokens</span>
 
             {justCreated && (
-              <div className="space-y-2 rounded-xl border-2 border-lime-dark bg-lime-dark/10 p-3">
+              <div className="space-y-3 rounded-xl border-2 border-lime-dark bg-lime-dark/10 p-3">
                 <p className="text-xs font-semibold text-ink">
-                  Copy this now — it won&apos;t be shown again. Pass it as the{" "}
-                  <code className="rounded bg-ink/5 px-1 py-0.5">mcpToken</code> argument
-                  when Claude calls <code className="rounded bg-ink/5 px-1 py-0.5">save_carousel</code>.
+                  Copy this now — it won&apos;t be shown again. Use it to
+                  connect this server with an{" "}
+                  <code className="rounded bg-ink/5 px-1 py-0.5">Authorization: Bearer</code>{" "}
+                  header, not as a value you type into a Claude conversation.
                 </p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 truncate rounded-lg border-2 border-ink/15 bg-white px-2 py-1 text-xs">
@@ -174,6 +185,30 @@ export function McpPanel() {
                     Copy
                   </button>
                 </div>
+
+                <div>
+                  <p className="mb-1 text-xs text-ink/60">
+                    Claude Code — run once in your terminal:
+                  </p>
+                  <div className="flex items-start gap-2">
+                    <code className="flex-1 overflow-x-auto whitespace-pre rounded-lg border-2 border-ink/15 bg-white px-2 py-1 text-xs">
+                      {buildConnectCommand(justCreated.token)}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(buildConnectCommand(justCreated.token))}
+                      className="kal-btn-ghost shrink-0 !py-1 !text-xs"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-ink/45">
+                    Claude Desktop: add the same URL and header under this
+                    server&apos;s <code className="rounded bg-ink/5 px-1 py-0.5">headers</code> in
+                    your MCP config instead.
+                  </p>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setJustCreated(null)}

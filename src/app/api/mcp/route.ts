@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { createMcpHandler } from "mcp-handler";
+import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import type { AuthInfo, ServerContext } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppSettings, CarouselBrand, CarouselState, CopyProvider, Slide, SlideData } from "@/lib/types";
 import { brainstormCarousel, BRAINSTORM_FORMATS } from "@/lib/carouselBrainstorm";
@@ -18,14 +19,18 @@ import { getUserSettings } from "@/lib/server/settingsRepo";
  * generation) as tools any MCP client (Claude Desktop, Claude Code,
  * claude.ai custom connectors) can call by adding this route's URL.
  *
- * Two ways to supply AI/USDA provider keys: pass them explicitly as
- * arguments each call (fully anonymous BYOK, nothing stored), or pass
- * mcpToken (generated from the app's "Connect Claude" panel, stored only as
- * a salted hash) so the caller's own saved keys — synced encrypted to their
- * account by the website's Settings panel — are used for whichever fields
- * were left out. An explicit argument always wins over the saved value when
- * both are present. save_carousel and referenceImageTags always require
- * mcpToken, since they read/write account-scoped data.
+ * Account linking happens once, at the CONNECTION, not per tool call: add
+ * this server with an `Authorization: Bearer <token>` header (the token
+ * comes from the app's "Connect Claude" panel) and every tool call after
+ * that is automatically scoped to that account — no token argument for
+ * Claude to ask for in chat. withMcpAuth (below) verifies the header via
+ * resolveMcpToken and exposes the account as ctx.http.authInfo; tool
+ * handlers read it via resolveAccount(ctx). Provider API keys still work
+ * two ways: pass them explicitly as arguments (fully anonymous BYOK,
+ * nothing stored), or leave them out once connected with a header and
+ * they're pulled from the account's saved Settings — an explicit argument
+ * always wins when both are present. save_carousel and referenceImageTags
+ * require the header, since they read/write account-scoped data.
  *
  * Calls the upstream providers (Anthropic/Gemini/OpenAI/custom/USDA)
  * directly via src/lib/server/* rather than routing back through this
@@ -44,26 +49,31 @@ function errorResult(e: unknown) {
   };
 }
 
+/** Verifies the Authorization: Bearer header (if any) against the app's own token table. */
+async function verifyToken(_req: Request, bearerToken?: string): Promise<AuthInfo | undefined> {
+  if (!bearerToken || !bearerToken.trim()) return undefined;
+  const resolved = await resolveMcpToken(bearerToken);
+  if (!resolved) return undefined;
+  return { token: bearerToken, clientId: resolved.userId, scopes: [], extra: { userId: resolved.userId } };
+}
+
 interface ResolvedAccount {
   userId: string;
   settings: AppSettings | null;
 }
 
-/** Resolves mcpToken (if given) to the account it belongs to, plus that account's saved settings, if any. */
-async function resolveAccount(mcpToken: string | undefined): Promise<ResolvedAccount | null> {
-  if (!mcpToken || !mcpToken.trim()) return null;
-  const resolved = await resolveMcpToken(mcpToken);
-  if (!resolved) {
-    throw new Error("Invalid or revoked access token. Generate a new one in the app's Connect Claude panel.");
-  }
-  const settings = await getUserSettings(resolved.userId);
-  return { userId: resolved.userId, settings };
+/** Reads the account a request's Authorization header resolved to (if any), plus its saved settings. */
+async function resolveAccount(ctx: ServerContext): Promise<ResolvedAccount | null> {
+  const userId = ctx.http?.authInfo?.extra?.userId;
+  if (typeof userId !== "string") return null;
+  const settings = await getUserSettings(userId);
+  return { userId, settings };
 }
 
 /**
  * Merges raw data: URLs with tags uploaded via the website's "Connect Claude"
  * widget. Tags are scoped to the resolved account, so resolving even one tag
- * requires mcpToken to have resolved successfully.
+ * requires the connection to carry a valid Authorization header.
  */
 async function resolveReferenceImages(
   rawImages: string[] | undefined,
@@ -74,7 +84,9 @@ async function resolveReferenceImages(
   if (!tags || tags.length === 0) return images;
 
   if (!account) {
-    throw new Error("referenceImageTags requires mcpToken — generate one in the app's Connect Claude panel.");
+    throw new Error(
+      "referenceImageTags requires this MCP connection to be authenticated — add an Authorization: Bearer header with a token from the app's Connect Claude panel when connecting this server."
+    );
   }
   for (const tag of tags) {
     const dataUrl = await getMcpImageByTag(account.userId, tag);
@@ -106,7 +118,8 @@ interface ProviderKeyInput {
 /**
  * Builds the effective AppSettings for a call: an explicit argument always
  * wins, otherwise falls back to the resolved account's saved settings (if
- * mcpToken was given and something's been saved there), otherwise a default.
+ * the connection is authenticated and something's been saved there),
+ * otherwise a default.
  */
 function mergeAppSettings(input: ProviderKeyInput, account: AppSettings | null): AppSettings {
   const pick = (explicit: string | undefined, fromAccount: string | undefined | null, fallback = "") =>
@@ -133,28 +146,24 @@ const searchUsdaFoodInput = z.object({
     .string()
     .optional()
     .describe(
-      "Your USDA FoodData Central API key. Omit and pass mcpToken to use the key saved in your account's Settings; omit both to fall back to the shared DEMO_KEY (rate-limited)."
+      "Your USDA FoodData Central API key. Omit if this connection is authenticated (see server instructions) to use the key saved in your account's Settings; omit both to fall back to the shared DEMO_KEY (rate-limited)."
     ),
-  mcpToken: z
-    .string()
-    .optional()
-    .describe("Your Kalorist account access token — lets usdaApiKey be omitted if you've saved one in Settings"),
 });
 
 const copyProviderInput = z.object({
   copyProvider: z
     .enum(["anthropic", "gemini", "openai", "custom"])
     .optional()
-    .describe("Omit to use the provider saved in your account's Settings (requires mcpToken); defaults to anthropic otherwise"),
-  anthropicApiKey: z.string().optional().describe("Omit + pass mcpToken to use the key saved in Settings"),
-  anthropicModel: z.string().optional().describe("Defaults to claude-sonnet-5, or your saved model if mcpToken resolves one"),
+    .describe("Omit to use the provider saved in your account's Settings (needs an authenticated connection); defaults to anthropic otherwise"),
+  anthropicApiKey: z.string().optional().describe("Omit on an authenticated connection to use the key saved in Settings"),
+  anthropicModel: z.string().optional().describe("Defaults to claude-sonnet-5, or your saved model on an authenticated connection"),
   geminiApiKey: z
     .string()
     .optional()
-    .describe("Also used for item detection/image generation if relevant. Omit + pass mcpToken to use the key saved in Settings"),
-  geminiCopyModel: z.string().optional().describe("Defaults to gemini-2.5-flash, or your saved model if mcpToken resolves one"),
-  openaiApiKey: z.string().optional().describe("Omit + pass mcpToken to use the key saved in Settings"),
-  openaiModel: z.string().optional().describe("Defaults to gpt-4o-mini, or your saved model if mcpToken resolves one"),
+    .describe("Also used for item detection/image generation if relevant. Omit on an authenticated connection to use the key saved in Settings"),
+  geminiCopyModel: z.string().optional().describe("Defaults to gemini-2.5-flash, or your saved model on an authenticated connection"),
+  openaiApiKey: z.string().optional().describe("Omit on an authenticated connection to use the key saved in Settings"),
+  openaiModel: z.string().optional().describe("Defaults to gpt-4o-mini, or your saved model on an authenticated connection"),
   customApiKey: z.string().optional(),
   customModel: z.string().optional(),
   customBaseUrl: z.string().optional().describe("e.g. https://api.groq.com/openai/v1 — must be https"),
@@ -175,13 +184,7 @@ const brainstormCarouselInput = copyProviderInput.extend({
     .max(6)
     .optional()
     .describe(
-      "Tags (e.g. 'img_7f3a2c') from images uploaded via the app's Connect Claude panel, as an alternative to pasting raw data: URLs. Requires mcpToken."
-    ),
-  mcpToken: z
-    .string()
-    .optional()
-    .describe(
-      "Your Kalorist account access token. Required for referenceImageTags; also lets any provider key/model above be omitted in favor of what's saved in your account's Settings."
+      "Tags (e.g. 'img_7f3a2c') from images uploaded via the app's Connect Claude panel, as an alternative to pasting raw data: URLs. Needs an authenticated connection."
     ),
   valueProposition: z
     .string()
@@ -190,7 +193,7 @@ const brainstormCarouselInput = copyProviderInput.extend({
   usdaApiKey: z
     .string()
     .optional()
-    .describe("Omit + pass mcpToken to use the key saved in Settings; omit both to fall back to DEMO_KEY (rate-limited)"),
+    .describe("Omit on an authenticated connection to use the key saved in Settings; omit both to fall back to DEMO_KEY (rate-limited)"),
 });
 
 const brandInput = z
@@ -212,9 +215,9 @@ const generateSlideImageInput = z.object({
     .string()
     .optional()
     .describe(
-      "Image generation always uses Gemini. Omit + pass mcpToken to use the Gemini key saved in your account's Settings."
+      "Image generation always uses Gemini. Omit on an authenticated connection to use the Gemini key saved in your account's Settings."
     ),
-  geminiModel: z.string().optional().describe("Defaults to gemini-2.5-flash-image, or your saved model if mcpToken resolves one"),
+  geminiModel: z.string().optional().describe("Defaults to gemini-2.5-flash-image, or your saved model on an authenticated connection"),
   referenceImages: z
     .array(dataUrlSchema)
     .max(2)
@@ -227,13 +230,7 @@ const generateSlideImageInput = z.object({
     .max(2)
     .optional()
     .describe(
-      "Tags from images uploaded via the app's Connect Claude panel, as an alternative to referenceImages. Requires mcpToken."
-    ),
-  mcpToken: z
-    .string()
-    .optional()
-    .describe(
-      "Your Kalorist account access token. Required for referenceImageTags; also lets geminiApiKey/geminiModel be omitted in favor of what's saved in your account's Settings."
+      "Tags from images uploaded via the app's Connect Claude panel, as an alternative to referenceImages. Needs an authenticated connection."
     ),
 });
 
@@ -246,9 +243,6 @@ const slideSchema = z.object({
 });
 
 const saveCarouselInput = z.object({
-  mcpToken: z
-    .string()
-    .describe("Your Kalorist account access token — generate one in the app's Connect Claude panel"),
   carouselId: z
     .string()
     .optional()
@@ -264,19 +258,19 @@ const saveCarouselInput = z.object({
   cta: slideSchema.describe("Use the 'slide' object returned by generate_slide_image for the CTA"),
 });
 
-const handler = createMcpHandler(
+const rawHandler = createMcpHandler(
   (server) => {
     server.registerTool(
       "search_usda_food",
       {
         title: "Search USDA Food Data",
         description:
-          "Search the USDA FoodData Central database for real, verified calorie/protein figures for a food or menu item. Never invents numbers. Pass mcpToken to use the USDA key saved in your account's Settings instead of usdaApiKey.",
+          "Search the USDA FoodData Central database for real, verified calorie/protein figures for a food or menu item. Never invents numbers. On an authenticated connection, the USDA key saved in your account's Settings is used automatically if usdaApiKey is omitted.",
         inputSchema: searchUsdaFoodInput,
       },
-      async ({ query, usdaApiKey, mcpToken }) => {
+      async ({ query, usdaApiKey }, ctx) => {
         try {
-          const account = await resolveAccount(mcpToken);
+          const account = await resolveAccount(ctx);
           const key = usdaApiKey?.trim() || account?.settings?.usdaApiKey || "";
           const foods = await searchUsdaFoodServer(query, key);
           return { content: [{ type: "text", text: JSON.stringify(foods, null, 2) }] };
@@ -291,12 +285,12 @@ const handler = createMcpHandler(
       {
         title: "Brainstorm a Carousel",
         description:
-          "Brainstorm a full nutrition-education Instagram carousel (cover headline, content slide(s), closing CTA) using your chosen AI copy provider. The model only proposes which real foods to use — every calorie/protein number comes from a live USDA FoodData Central lookup, never invented. Returns SlideData objects ready to pass to generate_slide_image. Pass mcpToken to use the provider/keys saved in your account's Settings instead of specifying them here.",
+          "Brainstorm a full nutrition-education Instagram carousel (cover headline, content slide(s), closing CTA) using your chosen AI copy provider. The model only proposes which real foods to use — every calorie/protein number comes from a live USDA FoodData Central lookup, never invented. Returns SlideData objects ready to pass to generate_slide_image. On an authenticated connection, the provider/keys saved in your account's Settings are used automatically for anything left unspecified.",
         inputSchema: brainstormCarouselInput,
       },
-      async (input) => {
+      async (input, ctx) => {
         try {
-          const account = await resolveAccount(input.mcpToken);
+          const account = await resolveAccount(ctx);
           const settings = mergeAppSettings(input, account?.settings ?? null);
           const extraContext = input.valueProposition
             ? `The value this content should provide to the viewer (why it performs well): "${input.valueProposition}"`
@@ -336,16 +330,16 @@ const handler = createMcpHandler(
       {
         title: "Generate a Slide Image",
         description:
-          "Render one finished carousel slide image from a SlideData object (as returned by brainstorm_carousel). Reuses the app's own prompt templates so the badge, typography, and layout stay consistent with the rest of the carousel. Returns the rendered image plus a 'slide' JSON object you can pass straight into save_carousel's cover/content/cta. Pass mcpToken to use the Gemini key saved in your account's Settings instead of geminiApiKey.",
+          "Render one finished carousel slide image from a SlideData object (as returned by brainstorm_carousel). Reuses the app's own prompt templates so the badge, typography, and layout stay consistent with the rest of the carousel. Returns the rendered image plus a 'slide' JSON object you can pass straight into save_carousel's cover/content/cta. On an authenticated connection, the Gemini key saved in your account's Settings is used automatically if geminiApiKey is omitted.",
         inputSchema: generateSlideImageInput,
       },
-      async ({ slideData, brand, geminiApiKey, geminiModel, referenceImages, referenceImageTags, mcpToken }) => {
+      async ({ slideData, brand, geminiApiKey, geminiModel, referenceImages, referenceImageTags }, ctx) => {
         try {
-          const account = await resolveAccount(mcpToken);
+          const account = await resolveAccount(ctx);
           const effectiveGeminiApiKey = geminiApiKey?.trim() || account?.settings?.geminiApiKey || "";
           if (!effectiveGeminiApiKey) {
             throw new Error(
-              "Missing Gemini API key — pass geminiApiKey directly, or pass mcpToken with a Gemini key saved in your account's Settings."
+              "Missing Gemini API key — pass geminiApiKey directly, or connect this MCP server with an Authorization header so a Gemini key saved in your account's Settings can be used."
             );
           }
           const effectiveGeminiModel = geminiModel?.trim() || account?.settings?.geminiModel || "gemini-2.5-flash-image";
@@ -391,15 +385,15 @@ const handler = createMcpHandler(
       {
         title: "Save a Carousel to My Account",
         description:
-          "Save a finished carousel (title, brand, and cover/content/cta slides — each ideally the 'slide' object returned by generate_slide_image) into the caller's Kalorist account, so it shows up in \"My Carousels\" on the website for viewing and downloading. Requires mcpToken. Pass carouselId to update a carousel you saved earlier instead of creating a new one.",
+          "Save a finished carousel (title, brand, and cover/content/cta slides — each ideally the 'slide' object returned by generate_slide_image) into the caller's Kalorist account, so it shows up in \"My Carousels\" on the website for viewing and downloading. Needs an authenticated connection (Authorization: Bearer header). Pass carouselId to update a carousel you saved earlier instead of creating a new one.",
         inputSchema: saveCarouselInput,
       },
-      async (input) => {
+      async (input, ctx) => {
         try {
-          const resolved = await resolveMcpToken(input.mcpToken);
-          if (!resolved) {
+          const account = await resolveAccount(ctx);
+          if (!account) {
             throw new Error(
-              "Invalid or revoked access token. Generate a new one in the app's Connect Claude panel."
+              "This tool needs an authenticated connection — add an Authorization: Bearer header with a token from the app's Connect Claude panel when connecting this MCP server, then reconnect."
             );
           }
           const carousel: CarouselState = {
@@ -411,10 +405,10 @@ const handler = createMcpHandler(
           };
           let id = input.carouselId ?? null;
           if (id) {
-            const updated = await updateCarousel(resolved.userId, id, carousel);
+            const updated = await updateCarousel(account.userId, id, carousel);
             if (!updated) throw new Error(`No carousel with id "${id}" in your account.`);
           } else {
-            id = await createCarousel(resolved.userId, carousel);
+            id = await createCarousel(account.userId, carousel);
           }
           return {
             content: [
@@ -445,20 +439,28 @@ into the caller's Kalorist account, where it shows up in "My Carousels" for
 viewing/downloading. search_usda_food is available standalone for looking up
 specific items.
 
-If the user says they're signed in and already have API keys saved on the
-website, ask them for their mcpToken (generated from the app's "Connect
-Claude" panel) and pass just that — omit copyProvider/anthropicApiKey/
-geminiApiKey/usdaApiKey/etc. entirely and each falls back to whatever's
-saved in their account's Settings. Only ask the user to paste a raw API key
-if they don't have an account, haven't saved one for the provider they want,
-or explicitly prefer not to use mcpToken. save_carousel always requires
-mcpToken (there's no anonymous way to save). referenceImageTags on
-brainstorm_carousel/generate_slide_image also require mcpToken and resolve
-images uploaded through that same "Connect Claude" panel, as an alternative
-to pasting raw data: URLs (paste-in-chat isn't possible for images, so this
-is the only way to attach one). ${BRAINSTORM_FORMATS.map((f) => f.label).join(", ")}
-are the available content formats.`,
+Account linking is a one-time CONNECTION setting, not a tool argument: the
+user adds an "Authorization: Bearer <token>" header (token from the app's
+"Connect Claude" panel) when they connect this server — never ask for a
+token in chat, there is no tool parameter for it. If a tool call fails with
+an authentication-required error, tell the user to reconnect this server
+with that header (e.g. \`claude mcp add --transport http kalorist <url>
+--header "Authorization: Bearer <token>"\` in Claude Code) rather than
+asking them to paste anything into the conversation. Once connected that
+way, provider/USDA keys saved in the user's account Settings are used
+automatically for any of copyProvider/anthropicApiKey/geminiApiKey/
+usdaApiKey/etc. left unspecified — only ask the user for a raw API key if
+they're not connected that way or haven't saved one for the provider they
+want. save_carousel always needs the authenticated connection (no anonymous
+way to save). referenceImageTags on brainstorm_carousel/generate_slide_image
+also needs it and resolves images uploaded through that same "Connect
+Claude" panel, as an alternative to pasting raw data: URLs (paste-in-chat
+isn't possible for images, so this is the only way to attach one).
+${BRAINSTORM_FORMATS.map((f) => f.label).join(", ")} are the available
+content formats.`,
   }
 );
+
+const handler = withMcpAuth(rawHandler, verifyToken, { required: false });
 
 export { handler as GET, handler as POST };

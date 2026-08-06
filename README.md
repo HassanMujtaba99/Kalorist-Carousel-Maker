@@ -123,7 +123,8 @@ Desktop, Claude Code, claude.ai custom connectors) and Claude can build
 carousels for you directly, no local install required. It deploys
 automatically with the rest of the app.
 
-**Claude Desktop / Claude Code** — add to your MCP config:
+**Anonymous / BYOK, no account needed** — add to your MCP config with just
+the URL and every tool takes your provider/USDA keys as explicit arguments:
 
 ```json
 {
@@ -136,6 +137,24 @@ automatically with the rest of the app.
 ```
 
 (Claude Code: `claude mcp add --transport http kalorist-carousel-maker https://<your-deployed-app>.vercel.app/api/mcp`)
+
+**Linked to your account** — if you're signed in on the site and have API
+keys saved there already, connect with an `Authorization: Bearer <token>`
+header instead (token from the **Connect Claude (MCP)** panel, which also
+gives you this exact command pre-filled with your token and deployed URL —
+copy it from there rather than retyping it):
+
+```
+claude mcp add --transport http kalorist-carousel-maker https://<your-deployed-app>.vercel.app/api/mcp --header "Authorization: Bearer <token>"
+```
+
+Claude Desktop: add the same URL and header under that server's `headers` in
+its JSON config. This is a one-time step done when you connect the server —
+not something you paste into a chat message, and not a tool argument Claude
+will ever ask you for. (claude.ai's web "Connectors" UI doesn't currently
+expose a custom-header field for remote MCP servers, so account linking
+there isn't available yet — Claude Code and Claude Desktop are the supported
+path for now. The anonymous/BYOK connection above still works everywhere.)
 
 **Tools exposed:**
 
@@ -151,33 +170,38 @@ automatically with the rest of the app.
   straight into `save_carousel`.
 - `save_carousel` — save the finished carousel into your Kalorist account so
   it shows up in **My Carousels** on the site, where you can view each slide
-  and use the existing "Download all as ZIP" button. Requires `mcpToken`
-  (see below). Pass `carouselId` from an earlier `save_carousel` call to
-  update that carousel instead of creating a new one.
+  and use the existing "Download all as ZIP" button. Needs the connection to
+  be linked to your account (see above). Pass `carouselId` from an earlier
+  `save_carousel` call to update that carousel instead of creating a new one.
 
 Typical flow: `brainstorm_carousel` → `generate_slide_image` once per
 returned slide → `save_carousel` with the collected `slide` objects.
 
-**Connecting a tool call to your account.** MCP tool calls have no browser
+**Why the header, not a tool argument.** MCP tool calls have no browser
 session, so there's no automatic way for a call to know "this is your
 account" the way a page load on the website does — it needs its own
-credential. Sign in on the site, open the **Connect Claude (MCP)** panel,
-and click "Generate token". Pass that token as the `mcpToken` argument and
-two things follow from it:
+credential. Earlier versions of this passed a token as a tool argument
+(`mcpToken`), which meant Claude had to ask for it in chat on every
+conversation — not exactly plug-and-play. The `Authorization` header fixes
+that: it's verified once per connection (via
+[`withMcpAuth`](https://www.npmjs.com/package/mcp-handler)), and every tool
+call on that connection is automatically linked to your account afterwards.
+None of the tool schemas have a token field anymore. Two things follow from
+connecting this way:
 
 1. **Your saved provider keys are used automatically.** If you've already
-   entered API keys in the app's Settings panel, pass `mcpToken` alone on
-   `search_usda_food` / `brainstorm_carousel` / `generate_slide_image` and
-   leave out `usdaApiKey` / `copyProvider` / `anthropicApiKey` /
-   `geminiApiKey` / etc. — each one falls back to whatever's saved in your
-   account. Pass an explicit key as well and it overrides the saved one just
+   entered API keys in the app's Settings panel, leave `usdaApiKey` /
+   `copyProvider` / `anthropicApiKey` / `geminiApiKey` / etc. out of a tool
+   call entirely and each falls back to whatever's saved in your account.
+   Pass an explicit key on a given call and it overrides the saved one just
    for that call.
 2. **`save_carousel` and `referenceImageTags` become available** — these
-   always require `mcpToken` since they read/write account-scoped data (no
-   anonymous equivalent exists).
+   always need the linked connection since they read/write account-scoped
+   data (no anonymous equivalent exists).
 
-Only a salted hash of the token is stored; revoke it any time from the same
-panel.
+Only a salted hash of the token is stored (`src/lib/server/mcpAuthRepo.ts`);
+revoke it any time from the **Connect Claude (MCP)** panel — doing so
+invalidates every connection using it immediately.
 
 **Reference images without pasting a data URL.** Since there's no way to
 attach a file to a chat message inside a chatbox, the same "Connect Claude"
@@ -186,15 +210,14 @@ your account with a short tag (e.g. `img_7f3a2c`) plus a "Copy for Claude"
 button that copies a ready-made sentence referencing it. Paste that into
 your message yourself — Claude can't reach into the page and do it for you
 — then pass the tag via `referenceImageTags` on `brainstorm_carousel` or
-`generate_slide_image` (alongside `mcpToken`) instead of a raw `data:` URL.
+`generate_slide_image` instead of a raw `data:` URL (still needs the linked
+connection, since tags are scoped to your account).
 
 Internally, the MCP route calls Anthropic/Gemini/OpenAI/USDA directly
 (`src/lib/server/*`) rather than routing back through this app's own
 `/api/*` routes, which assume a browser's implicit origin for their
 relative `fetch()` calls — that assumption doesn't hold in a server
-context. `save_carousel` and image-tag lookups are the one place account
-data is touched, via a small token table (`src/lib/server/mcpAuthRepo.ts`)
-separate from Neon Auth's cookie-based session.
+context.
 
 ## How it works
 
