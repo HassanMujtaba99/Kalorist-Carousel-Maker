@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getPublicOrigin } from "mcp-handler";
 import { auth } from "@/lib/auth/server";
 import { createAuthCode, getClient } from "@/lib/server/oauthRepo";
 import { escapeHtml, renderOAuthPage } from "@/lib/server/oauthPage";
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
       redirectUri
     )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256&response_type=code&state=${encodeURIComponent(state)}`;
     return NextResponse.redirect(
-      new URL(`/auth/sign-in?redirectTo=${encodeURIComponent(returnTo)}`, req.nextUrl.origin)
+      new URL(`/auth/sign-in?redirectTo=${encodeURIComponent(returnTo)}`, getPublicOrigin(req))
     );
   }
 

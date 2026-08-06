@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getPublicOrigin } from "mcp-handler";
 import { auth } from "@/lib/auth/server";
 import { getClient } from "@/lib/server/oauthRepo";
 import { escapeHtml, renderOAuthPage } from "@/lib/server/oauthPage";
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
   if (!user) {
     const returnTo = `${req.nextUrl.pathname}${req.nextUrl.search}`;
     const signInUrl = `/auth/sign-in?redirectTo=${encodeURIComponent(returnTo)}`;
-    return NextResponse.redirect(new URL(signInUrl, req.nextUrl.origin));
+    return NextResponse.redirect(new URL(signInUrl, getPublicOrigin(req)));
   }
 
   const denyUrl = `${redirectUri}${redirectUri.includes("?") ? "&" : "?"}error=access_denied${state ? `&state=${encodeURIComponent(state)}` : ""}`;
