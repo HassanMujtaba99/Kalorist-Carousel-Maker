@@ -461,6 +461,9 @@ content formats.`,
   }
 );
 
-const handler = withMcpAuth(rawHandler, verifyToken, { required: false });
+const handler = withMcpAuth(rawHandler, verifyToken, {
+  required: false,
+  resourceMetadataPath: "/.well-known/oauth-protected-resource",
+});
 
 export { handler as GET, handler as POST };

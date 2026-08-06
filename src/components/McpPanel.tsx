@@ -154,11 +154,25 @@ export function McpPanel() {
             remote MCP server in Claude Desktop, Claude Code, or claude.ai. To
             link it to this account — so your saved API keys are used
             automatically and carousels Claude builds get saved to{" "}
-            <strong>My Carousels</strong> — generate a token below and connect
-            with it as an <code className="rounded bg-ink/5 px-1 py-0.5">Authorization</code>{" "}
-            header, not something you paste into a chat message. That&apos;s a
-            one-time setup step; after that, Claude never needs to ask about it
-            again.
+            <strong>My Carousels</strong> — connect it, don&apos;t paste anything
+            into a chat message:
+          </p>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-ink/60">
+            <li>
+              <strong>claude.ai</strong>: Settings → Connectors → Add custom
+              connector → paste the URL → Connect. It&apos;ll open a login
+              popup for this app — sign in and click Allow, nothing to copy.
+            </li>
+            <li>
+              <strong>Claude Desktop / Claude Code</strong>: generate a token
+              below and connect with it as an{" "}
+              <code className="rounded bg-ink/5 px-1 py-0.5">Authorization</code>{" "}
+              header.
+            </li>
+          </ul>
+          <p className="text-sm text-ink/60">
+            Either way it&apos;s a one-time setup step; after that, Claude
+            never needs to ask about it again.
           </p>
 
           {/* Access tokens */}

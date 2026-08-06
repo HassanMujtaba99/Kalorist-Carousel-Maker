@@ -139,22 +139,32 @@ the URL and every tool takes your provider/USDA keys as explicit arguments:
 (Claude Code: `claude mcp add --transport http kalorist-carousel-maker https://<your-deployed-app>.vercel.app/api/mcp`)
 
 **Linked to your account** — if you're signed in on the site and have API
-keys saved there already, connect with an `Authorization: Bearer <token>`
-header instead (token from the **Connect Claude (MCP)** panel, which also
-gives you this exact command pre-filled with your token and deployed URL —
-copy it from there rather than retyping it):
+keys saved there already, linking a connection means Claude never asks you
+for a key or token, and `save_carousel` works. Two ways to do it, depending
+on which Claude you're using:
 
-```
-claude mcp add --transport http kalorist-carousel-maker https://<your-deployed-app>.vercel.app/api/mcp --header "Authorization: Bearer <token>"
-```
+- **claude.ai (browser)**: Settings → Connectors → Add custom connector →
+  paste the `/api/mcp` URL → Connect. claude.ai will open a login popup for
+  this app (sign in if needed, then click Allow) and handle the rest via a
+  real OAuth flow — nothing to copy or paste. This is what the earlier
+  "couldn't register with sign-in service" error was about: this app didn't
+  implement OAuth yet. It now does — see below for how.
+- **Claude Desktop / Claude Code**: these clients support a static header
+  instead, which is simpler than a login popup for a local config file.
+  Generate a token from the **Connect Claude (MCP)** panel on the site — it
+  shows this command pre-filled with your token and deployed URL:
 
-Claude Desktop: add the same URL and header under that server's `headers` in
-its JSON config. This is a one-time step done when you connect the server —
-not something you paste into a chat message, and not a tool argument Claude
-will ever ask you for. (claude.ai's web "Connectors" UI doesn't currently
-expose a custom-header field for remote MCP servers, so account linking
-there isn't available yet — Claude Code and Claude Desktop are the supported
-path for now. The anonymous/BYOK connection above still works everywhere.)
+  ```
+  claude mcp add --transport http kalorist-carousel-maker https://<your-deployed-app>.vercel.app/api/mcp --header "Authorization: Bearer <token>"
+  ```
+
+  Claude Desktop: add the same URL and header under that server's `headers`
+  in its JSON config.
+
+Either way this is a one-time step done when you connect the server — not
+something you paste into a chat message, and not a tool argument Claude
+will ever ask you for. The anonymous/BYOK connection above still works
+everywhere, with or without linking an account.
 
 **Tools exposed:**
 
@@ -177,17 +187,27 @@ path for now. The anonymous/BYOK connection above still works everywhere.)
 Typical flow: `brainstorm_carousel` → `generate_slide_image` once per
 returned slide → `save_carousel` with the collected `slide` objects.
 
-**Why the header, not a tool argument.** MCP tool calls have no browser
-session, so there's no automatic way for a call to know "this is your
-account" the way a page load on the website does — it needs its own
-credential. Earlier versions of this passed a token as a tool argument
-(`mcpToken`), which meant Claude had to ask for it in chat on every
-conversation — not exactly plug-and-play. The `Authorization` header fixes
-that: it's verified once per connection (via
-[`withMcpAuth`](https://www.npmjs.com/package/mcp-handler)), and every tool
-call on that connection is automatically linked to your account afterwards.
-None of the tool schemas have a token field anymore. Two things follow from
-connecting this way:
+**Authentication internals.** MCP tool calls have no browser session, so
+there's no automatic way for a call to know "this is your account" the way
+a page load on the website does — it needs its own credential. Earlier
+versions of this passed a token as a tool argument (`mcpToken`), which meant
+Claude had to ask for it in chat on every conversation — not exactly
+plug-and-play. None of the tool schemas have a token field anymore; instead:
+
+- `/api/mcp` is wrapped in [`withMcpAuth`](https://www.npmjs.com/package/mcp-handler),
+  which verifies an `Authorization: Bearer <token>` header once per
+  connection (`verifyToken` → `resolveMcpToken`) and exposes the resulting
+  account via `ctx.http.authInfo` to every tool call on that connection —
+  this is what the Desktop/Code header method uses directly.
+- For clients that only support OAuth login (claude.ai), `src/app/api/oauth/*`
+  implements a minimal OAuth 2.1 + PKCE authorization server on top of Neon
+  Auth: RFC 8414/9728 metadata, RFC 7591 dynamic client registration, an
+  `/authorize` endpoint that reuses the site's own sign-in page and shows a
+  one-click consent screen, and a `/token` endpoint. It mints the exact same
+  kind of token as the "Generate token" button — `/api/mcp`'s auth code
+  doesn't know or care which path produced it.
+
+Two things follow from connecting either way:
 
 1. **Your saved provider keys are used automatically.** If you've already
    entered API keys in the app's Settings panel, leave `usdaApiKey` /

@@ -10,14 +10,17 @@ export function generateStaticParams() {
 
 export default async function AuthPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ path: string }>;
+  searchParams: Promise<{ redirectTo?: string }>;
 }) {
   const { path } = await params;
+  const { redirectTo } = await searchParams;
   return (
     <div className="flex min-h-screen items-center justify-center bg-cream px-4 py-12">
       <div className="kal-card w-full max-w-md">
-        <AuthView pathname={path} classNames={authViewClassNames} />
+        <AuthView pathname={path} classNames={authViewClassNames} redirectTo={redirectTo} />
       </div>
     </div>
   );

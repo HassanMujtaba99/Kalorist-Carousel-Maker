@@ -91,6 +91,34 @@ async function createSchema(): Promise<void> {
     )
   `;
   await db`CREATE INDEX IF NOT EXISTS idx_mcp_images_user ON mcp_images(user_id)`;
+
+  // Minimal OAuth 2.1 authorization server (RFC 7591 dynamic client
+  // registration + authorization code + PKCE) so MCP clients that only
+  // support OAuth login (e.g. claude.ai's web Connectors UI, which has no
+  // field for a manually-configured header) can link an account too.
+  // Public clients only — no client_secret, PKCE (S256) is the only proof.
+  await db`
+    CREATE TABLE IF NOT EXISTS oauth_clients (
+      client_id TEXT PRIMARY KEY,
+      client_name TEXT NOT NULL,
+      redirect_uris TEXT NOT NULL,
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  // Short-lived, single-use authorization codes exchanged at the token
+  // endpoint. Deleted immediately on use (see consumeAuthCode).
+  await db`
+    CREATE TABLE IF NOT EXISTS oauth_codes (
+      code TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      redirect_uri TEXT NOT NULL,
+      code_challenge TEXT NOT NULL,
+      created_at BIGINT NOT NULL,
+      expires_at BIGINT NOT NULL
+    )
+  `;
 }
 
 /** Runs the CREATE TABLE IF NOT EXISTS migration once per warm instance. */
